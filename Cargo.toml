@@ -1,0 +1,21 @@
+[package]
+name = "syncrab"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { version = "1.0.219", features = ["derive"]}
+rusqlite = { version = "0.37.0", features = ["bundled"] }
+ratatui = "0.29.0"
+crossterm = "0.29.0"
+color-eyre = "=0.6.5"
+chrono = "0.4.42"
+arboard = "3.6.1"
+
+[[bin]]
+name = "syncrab"
+path = "src/main.rs"
+
+[[bin]]
+name = "syncrab_pb"
+path = "src/cron/perform_backup.rs"
