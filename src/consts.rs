@@ -4,9 +4,9 @@ use ratatui::style::Color;
 // shortcuts ──────────────────────────────────────────────────
 pub const SHORTCUT_FILTER: char = 'f'; // customisable
 pub const SHORTCUT_SEARCH: char = 's'; // customisable
+pub const SHORTCUT_REAL_TIME: char = 'r'; // customisable
 pub const SHORTCUT_DAILY: char = 'd'; // customisable
 pub const SHORTCUT_WEEKLY: char = 'w'; // customisable
-pub const SHORTCUT_MONTHLY: char = 'm'; // customisable
 pub const SHORTCUT_QUIT: char = 'q'; // customisable
 pub const SHORTCUT_NEW: char = 'n'; // customisable
 
@@ -18,7 +18,7 @@ pub const SLIDER: &str = "│"; // customisable
 
 // cron ───────────────────────────────────────────────────────
 pub const LOG_PATH: &str = "/home/$USER/syncrab_log.log"; // customisable
-pub const VALID_OPTS: [&str; 4] = [ALL, DAILY, WEEKLY, MONTHLY];
+pub const VALID_OPTS: [&str; 4] = [ALL, DAILY, WEEKLY, REAL_TIME];
 
 // db ─────────────────────────────────────────────────────────
 pub const DB_NAME: &str = "syncrab.db";
@@ -70,16 +70,16 @@ pub const DEACTIVATE: u8 = 0;
 pub const APP_TITLE: &str = "🦀 Syncrab";
 pub const APP_SUBTITLE: &str = "Manage and monitor your backup jobs";
 
+pub const REAL_TIME_BACKUPS: &str = "Real-time Backups";
 pub const DAILY_BACKUPS: &str = "Daily Backups";
 pub const WEEKLY_BACKUPS: &str = "Weekly Backups";
-pub const MONTHLY_BACKUPS: &str = "Monthly Backups";
 
 pub const SEARCH: &str = "search";
 pub const FILTER: &str = "filter";
 
+pub const REAL_TIME: &str = "realtime";
 pub const DAILY: &str = "daily";
 pub const WEEKLY: &str = "weekly";
-pub const MONTHLY: &str = "monthly";
 
 pub const JOURNAL: &str = "journal";
 pub const LOG: &str = "log";
@@ -103,8 +103,9 @@ pub const ALL: &str = "all";
 pub const ACTIVE: &str = "active";
 pub const INACTIVE: &str = "inactive";
 
+pub const REAL_TIME_COLS: &[&str; 4] = &["Id", "Source", "Target", "Active"];
 pub const DAILY_COLS: &[&str; 5] = &["Id", "Source", "Target", "Hour", "Active"];
-pub const WEEKLY_MONTHLY_COLS: &[&str; 6] = &["Id", "Source", "Target", "Hour", "Day", "Active"];
+pub const WEEKLY_COLS: &[&str; 6] = &["Id", "Source", "Target", "Hour", "Day", "Active"];
 pub const JOURNAL_COLS: &[&str; 6] = &[
     "Id",
     "Started at",

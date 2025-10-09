@@ -6,12 +6,12 @@ use rusqlite::Connection;
 
 // mods ──────────────────────────────────────────────────────────
 use crate::{
-    consts::DB_NAME,
+    consts::{DAILY, DB_NAME, REAL_TIME, WEEKLY},
     structs::{Job, Log, LogResult},
 };
 
 // DB ───────────────────────────────────────────────────────────
-fn db_path() -> PathBuf {
+pub fn db_path() -> PathBuf {
     let exe_path = env::current_exe().expect("❌ Failed to get current executable path");
     let exe_dir = exe_path
         .parent()
@@ -80,9 +80,9 @@ pub fn init_db() -> Connection {
 
 fn get_jobs(conn: &Connection, sql: &str) -> HashMap<&'static str, Vec<Job>> {
     let mut jobs_by_freq: HashMap<&'static str, Vec<Job>> = HashMap::with_capacity(3);
-    jobs_by_freq.insert("daily", Vec::new());
-    jobs_by_freq.insert("weekly", Vec::new());
-    jobs_by_freq.insert("monthly", Vec::new());
+    jobs_by_freq.insert(REAL_TIME, Vec::new());
+    jobs_by_freq.insert(DAILY, Vec::new());
+    jobs_by_freq.insert(WEEKLY, Vec::new());
 
     let mut stmt = conn
         .prepare(sql)
@@ -122,12 +122,11 @@ pub fn get_all_jobs(conn: &Connection) -> HashMap<&'static str, Vec<Job>> {
 pub fn get_jobs_to_run(
     conn: Connection,
     freq: Option<&str>,
-    day_str: String,
-    day_int: String,
+    day: String,
     hour: u8,
 ) -> HashMap<&'static str, Vec<Job>> {
     let sql = match freq {
-        Some(freq @ ("daily" | "weekly" | "monthly")) => {
+        Some(freq @ (REAL_TIME | DAILY | WEEKLY)) => {
             format!(
                 "SELECT * FROM jobs WHERE active = 1 AND frequency = '{freq}';",
                 freq = freq,
@@ -137,13 +136,13 @@ pub fn get_jobs_to_run(
         Some(_) | None => {
             format!(
                 "SELECT * FROM jobs WHERE active = 1 AND (
-                    (frequency = 'daily' AND hour = {hour}) 
-                    OR (frequency = 'weekly' AND day = '{day_str}' AND hour = {hour}) 
-                    OR (frequency = 'monthly' AND day = '{day_int}' AND hour = {hour})
+                    (frequency = '{daily}' AND hour = {hour}) 
+                    OR (frequency = '{weekly}' AND day = '{day}' AND hour = {hour}) 
                 );",
+                daily = DAILY,
+                weekly = WEEKLY,
                 hour = hour,
-                day_int = day_int,
-                day_str = day_str,
+                day = day,
             )
         }
     };
@@ -172,12 +171,12 @@ pub fn get_logs(conn: &Connection) -> Vec<Log> {
 
     let mut logs: Vec<Log> = log_iter
         .map(|log_result| {
-            log_result.unwrap_or_else(|e| panic!("❌ Failed to build log from row: [{}]", e))
+            log_result.unwrap_or_else(|e| panic!("❌ Failed to build log from row because [{}]", e))
         })
         .collect();
 
     let log_results: Vec<LogResult> = get_log_results(conn);
-    let mut results_map: HashMap<u8, Vec<LogResult>> = HashMap::new();
+    let mut results_map: HashMap<u16, Vec<LogResult>> = HashMap::new();
 
     // Cache the log_results
     for log_result in log_results {
@@ -264,7 +263,7 @@ pub fn update(job: &Job) -> Result<usize, String> {
     }
 }
 
-pub fn delete(id: u8) -> Result<usize, String> {
+pub fn delete(id: u16) -> Result<usize, String> {
     let conn: Connection = db_connect();
     match conn.execute("DELETE FROM jobs WHERE id = ?1", (&id,)) {
         Ok(res) => Ok(res),
@@ -347,7 +346,7 @@ pub fn insert_log(log: Log) -> Result<usize, String> {
     }
 }
 
-pub fn insert_log_resuts(log_id: u8, log_results: Vec<LogResult>) -> Result<usize, String> {
+pub fn insert_log_resuts(log_id: u16, log_results: Vec<LogResult>) -> Result<usize, String> {
     let mut conn: Connection = db_connect();
     let transaction = conn.transaction()
         .map_err(|e| format!(

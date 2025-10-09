@@ -8,7 +8,7 @@ use crossterm::{event::DisableMouseCapture, execute};
 use super::super::app::App;
 use crate::{
     app::structs::{Component, Modal},
-    consts::{SHORTCUT_DAILY, SHORTCUT_MONTHLY, SHORTCUT_SEARCH, SHORTCUT_WEEKLY},
+    consts::{SHORTCUT_DAILY, SHORTCUT_REAL_TIME, SHORTCUT_SEARCH, SHORTCUT_WEEKLY},
 };
 
 impl App {
@@ -17,6 +17,7 @@ impl App {
         if self.active_modal == Some(Modal::Log) {
             self.selected_log = None;
             self.active_modal = None;
+            self.active_component = Some(Component::Journal);
             return;
         }
 
@@ -73,9 +74,9 @@ impl App {
         self.event = None;
         self.active_component = match c {
             SHORTCUT_SEARCH => Some(Component::Search),
+            SHORTCUT_REAL_TIME => Some(Component::RealTime),
             SHORTCUT_DAILY => Some(Component::Daily),
             SHORTCUT_WEEKLY => Some(Component::Weekly),
-            SHORTCUT_MONTHLY => Some(Component::Monthly),
             _ => None,
         };
     }

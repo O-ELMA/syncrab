@@ -7,10 +7,11 @@ use super::super::app::App;
 use crate::{
     app::structs::{Component, Modal},
     consts::{
-        ACTIVATE, DAILY, DEACTIVATE, SCROLL_DOWN, SCROLL_UP, SHORTCUT_DAILY, SHORTCUT_FILTER,
-        SHORTCUT_MONTHLY, SHORTCUT_NEW, SHORTCUT_QUIT, SHORTCUT_SEARCH, SHORTCUT_WEEKLY,
+        ACTIVATE, DEACTIVATE, SCROLL_DOWN, SCROLL_UP, SHORTCUT_DAILY, SHORTCUT_FILTER,
+        SHORTCUT_NEW, SHORTCUT_QUIT, SHORTCUT_REAL_TIME, SHORTCUT_SEARCH, SHORTCUT_WEEKLY,
     },
     structs::Job,
+    utils::{get_active_jobs, get_active_logs}
 };
 
 impl App {
@@ -25,37 +26,31 @@ impl App {
         let code = event.code;
 
         if let Some(active_input) = self.get_active_input() {
-            match code {
-                KeyCode::Char(c) => {
-                    if modifiers == KeyModifiers::CONTROL {
-                        match c {
-                            'w' => active_input.delete_prev_word(),
-                            'v' => active_input.insert_paste(),
-                            _ => {}
-                        }
-                    } else {
-                        active_input.insert_char(c)
-                    }
-                }
-                KeyCode::Backspace => active_input.delete_prev_char(),
-                KeyCode::Delete => active_input.delete_next_char(),
-                KeyCode::Left => active_input.move_cursor_left(),
-                KeyCode::Right => active_input.move_cursor_right(),
-                KeyCode::Down | KeyCode::Up if self.active_component != Some(Component::Search) => {
+            match (modifiers, code) {
+                (KeyModifiers::CONTROL, KeyCode::Char('w')) => active_input.delete_prev_word(),
+                (KeyModifiers::CONTROL, KeyCode::Char('v')) => active_input.insert_paste(),
+                (_, KeyCode::Char(c)) => active_input.insert_char(c),
+                (_, KeyCode::Backspace) => active_input.delete_prev_char(),
+                (_, KeyCode::Delete) => active_input.delete_next_char(),
+                (_, KeyCode::Left) => active_input.move_cursor_left(),
+                (_, KeyCode::Right) => active_input.move_cursor_right(),
+                (_, KeyCode::Down | KeyCode::Up)
+                    if self.active_component != Some(Component::Search) =>
+                {
                     self.event = None;
-                    let is_daily = match &self.selected_job {
-                        Some(job) => job.frequency == DAILY,
-                        None => false,
+                    let freq: Option<Component> = match &self.selected_job {
+                        Some(job) => Some(Component::from_str(job.frequency.as_str())),
+                        None => None,
                     };
 
                     let comp = self.active_component.clone().unwrap();
                     self.active_component = Some(if code == KeyCode::Down {
-                        comp.next(is_daily)
+                        comp.next(freq)
                     } else {
-                        comp.previous(is_daily)
+                        comp.previous(freq)
                     });
                 }
-                KeyCode::Enter => match self.active_modal {
+                (_, KeyCode::Enter) => match self.active_modal {
                     Some(Modal::Replace) => self.replace_string(),
                     Some(Modal::Job) => self.commit_record(),
                     Some(_) | None => {}
@@ -65,67 +60,87 @@ impl App {
         } else if let Some(active_table) = self.get_active_table() {
             let idx = active_table.scroll;
 
-            match code {
-                KeyCode::Up => self.handle_scroll(SCROLL_UP)?,
-                KeyCode::Down => self.handle_scroll(SCROLL_DOWN)?,
-                KeyCode::Enter => {
+            match (modifiers, code) {
+                (_, KeyCode::Up) => self.handle_scroll(SCROLL_UP)?,
+                (_, KeyCode::Down) => self.handle_scroll(SCROLL_DOWN)?,
+                (_, KeyCode::Enter) => {
                     if self.show_journal {
-                        if let Some(log) = self.get_active_log(idx) {
+                        if let Some(log) = self.get_active_log(idx).cloned() {
                             self.open_log_modal(log)?;
                         }
-                    } else if let Some(job) = self.get_active_job(idx) {
+                    } else if let Some(job) = self.get_active_job(idx).cloned() {
                         self.open_job_form(job)?;
                     }
                 }
-                KeyCode::Char(SHORTCUT_NEW) => {
+                (_, KeyCode::Char(SHORTCUT_NEW)) => {
                     if let Some(comp) = self.active_component.as_ref() {
                         let job = Job::new(comp.to_string());
                         self.open_job_form(job)?;
                     }
                 }
-                KeyCode::Delete => {
-                    if let Some(job) = self.get_active_job(idx) {
+                (_, KeyCode::Delete) => {
+                    if let Some(job) = self.get_active_job(idx).cloned() {
                         self.delete_record(job);
                     }
                 }
-                KeyCode::Char(' ') => {
-                    if let Some(job) = self.get_active_job(idx) {
-                        if modifiers == KeyModifiers::CONTROL {
-                            self.mass_toggle(job.frequency.as_str(), ACTIVATE);
-                        } else if modifiers == KeyModifiers::ALT {
-                            self.mass_toggle(job.frequency.as_str(), DEACTIVATE);
-                        } else {
-                            self.set_selected_job(job);
-                            self.toggle_record();
-                        }
+                (KeyModifiers::CONTROL, KeyCode::Char(' ')) => {
+                    if let Some(job) = self.get_active_job(idx).cloned() {
+                        self.mass_toggle(job.frequency.as_str(), ACTIVATE);
                     }
                 }
-                KeyCode::Char('r') => {
-                    if modifiers == KeyModifiers::CONTROL {
-                        self.open_replace();
+                (KeyModifiers::ALT, KeyCode::Char(' ')) => {
+                    if let Some(job) = self.get_active_job(idx).cloned() {
+                        self.mass_toggle(job.frequency.as_str(), DEACTIVATE);
                     }
                 }
-                KeyCode::Char(SHORTCUT_FILTER) => self.filter = self.filter.next(),
-                KeyCode::Char(
-                    c @ (SHORTCUT_SEARCH | SHORTCUT_DAILY | SHORTCUT_WEEKLY | SHORTCUT_MONTHLY),
-                ) => self.enable_component(c),
-                KeyCode::Tab => self.toggle_journal(),
-                KeyCode::Char(SHORTCUT_QUIT) => self.exit(),
+                (_, KeyCode::Char(' ')) => {
+                    if let Some(job) = self.get_active_job(idx).cloned() {
+                        self.set_selected_job(job);
+                        self.toggle_record();
+                    }
+                }
+                (KeyModifiers::CONTROL, KeyCode::Char('r')) => {
+                    self.open_replace();
+                }
+                (_, KeyCode::Char(SHORTCUT_FILTER)) => {
+                    self.filter = self.filter.next();
+                }
+                (
+                    _,
+                    KeyCode::Char(
+                        c @ (SHORTCUT_SEARCH | SHORTCUT_DAILY | SHORTCUT_WEEKLY
+                        | SHORTCUT_REAL_TIME),
+                    ),
+                ) => {
+                    self.enable_component(c);
+                }
+                (_, KeyCode::Tab) => self.toggle_journal(),
+                (_, KeyCode::Char(SHORTCUT_QUIT)) => self.exit(),
                 _ => {}
             }
         } else {
-            match code {
-                KeyCode::Char(SHORTCUT_FILTER) => self.filter = self.filter.next(),
-                KeyCode::Char(
-                    c @ (SHORTCUT_SEARCH | SHORTCUT_DAILY | SHORTCUT_WEEKLY | SHORTCUT_MONTHLY),
-                ) => self.enable_component(c),
-                KeyCode::Char('r') => {
-                    if modifiers == KeyModifiers::CONTROL {
-                        self.open_replace();
-                    }
+            match (modifiers, code) {
+                (_, KeyCode::Char(SHORTCUT_FILTER)) => {
+                    self.filter = self.filter.next();
                 }
-                KeyCode::Tab => self.toggle_journal(),
-                KeyCode::Char(SHORTCUT_QUIT) => self.exit(),
+                (KeyModifiers::CONTROL, KeyCode::Char('r')) => {
+                    self.open_replace();
+                }
+                (
+                    _,
+                    KeyCode::Char(
+                        c @ (SHORTCUT_SEARCH | SHORTCUT_DAILY | SHORTCUT_WEEKLY
+                        | SHORTCUT_REAL_TIME),
+                    ),
+                ) => {
+                    self.enable_component(c);
+                }
+                (_, KeyCode::Tab) => {
+                    self.toggle_journal();
+                }
+                (_, KeyCode::Char(SHORTCUT_QUIT)) => {
+                    self.exit();
+                }
                 _ => {}
             }
         }
@@ -152,13 +167,28 @@ impl App {
             if comp.is_table() {
                 let comp_str = comp.to_str();
 
-                if let Some(curr_state) = self.states.get_mut(comp_str) {
-                    let count = if comp.is_journal() {
-                        self.logs.len()
-                    } else {
-                        self.stats.get(comp_str).unwrap().count as usize
-                    };
+                let count = if comp == &Component::Journal {
+                    get_active_logs(
+                        &self.search.value.to_lowercase(), 
+                        &self.logs
+                    ).len()
+                } else if comp == &Component::Log {
+                    self.selected_log
+                        .as_ref()
+                        .unwrap()
+                        .log_results
+                        .as_ref()
+                        .unwrap()
+                        .len()
+                } else {
+                    get_active_jobs(
+            &self.search.value.to_lowercase(),
+                        &self.filter,
+                        &self.jobs.get(comp_str).unwrap()
+                    ).len()
+                };
 
+                if let Some(curr_state) = self.states.get_mut(comp_str) {
                     // Calculate the new index based on direction
                     let i = match curr_state.table_state.selected() {
                         Some(i) if direction > 0 && i < count - 1 => i + 1, // Scroll down
@@ -172,15 +202,15 @@ impl App {
                     curr_state.scroll = i;
                 }
             } else if comp.is_field() && comp != &Component::Search {
-                let is_daily = match &self.selected_job {
-                    Some(job) => job.frequency == DAILY,
-                    None => false,
-                };
+                let freq: Option<Component> = self
+                    .selected_job
+                    .as_ref()
+                    .map(|job| Component::from_str(job.frequency.as_str()));
 
                 self.active_component = Some(if direction == 1 {
-                    comp.clone().next(is_daily)
+                    comp.clone().next(freq)
                 } else {
-                    comp.clone().previous(is_daily)
+                    comp.clone().previous(freq)
                 });
             }
         }

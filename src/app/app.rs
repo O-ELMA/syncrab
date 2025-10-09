@@ -20,7 +20,7 @@ use super::{
     structs::{Component, Filter, InputField, Modal, SectionState},
 };
 use crate::{
-    consts::{DAILY, JOURNAL, LOG, MONTHLY, WEEKLY},
+    consts::{DAILY, JOURNAL, LOG, REAL_TIME, WEEKLY},
     structs::{Job, Log, Stat},
 };
 
@@ -74,16 +74,16 @@ impl App {
         // Assign tables states
         self.states = HashMap::with_capacity(5);
         self.states.insert(
+            REAL_TIME,
+            SectionState::new(self.stats.get(REAL_TIME).unwrap().count as usize),
+        );
+        self.states.insert(
             DAILY,
             SectionState::new(self.stats.get(DAILY).unwrap().count as usize),
         );
         self.states.insert(
             WEEKLY,
             SectionState::new(self.stats.get(WEEKLY).unwrap().count as usize),
-        );
-        self.states.insert(
-            MONTHLY,
-            SectionState::new(self.stats.get(MONTHLY).unwrap().count as usize),
         );
         self.states
             .insert(JOURNAL, SectionState::new(self.logs.len()));

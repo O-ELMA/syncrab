@@ -7,7 +7,7 @@ use super::super::{
     structs::{Component, Modal},
 };
 use crate::{
-    consts::{DAILY, MONTHLY, WEEK_DAYS, WEEKLY},
+    consts::{DAILY, REAL_TIME, WEEK_DAYS, WEEKLY},
     db::db::{delete, insert, mass_replace, mass_update, update},
     structs::{Job, Log},
     utils::capitalise,
@@ -52,7 +52,7 @@ impl App {
                             }
 
                             let (active_count, inactive_count) =
-                                jobs.iter().fold((0u8, 0u8), |(a, i), j| {
+                                jobs.iter().fold((0u16, 0u16), |(a, i), j| {
                                     if j.active == 1 {
                                         (a + 1, i)
                                     } else {
@@ -64,7 +64,7 @@ impl App {
                             stat.inactive_count = inactive_count;
                         }
                         None => {
-                            job.id = Some(id as u8);
+                            job.id = Some(id as u16);
                             jobs.push(job.clone());
 
                             stat.count += 1;
@@ -146,10 +146,10 @@ impl App {
                 }
 
                 if active == 1 {
-                    stat.active_count = jobs.len() as u8;
+                    stat.active_count = jobs.len() as u16;
                     stat.inactive_count = 0;
                 } else {
-                    stat.inactive_count = jobs.len() as u8;
+                    stat.inactive_count = jobs.len() as u16;
                     stat.active_count = 0;
                 }
             }
@@ -164,22 +164,22 @@ impl App {
         let day = self.day.value.to_lowercase();
 
         // Check if essential fields are non-empty
-        if source.is_empty() || target.is_empty() || hour.is_empty() {
+        if source.is_empty() || target.is_empty() {
             return false;
         }
-        // Parse and validate hour (0-23)
-        let _: u8 = match hour.parse() {
-            Ok(t) if t <= 23 => t,
-            _ => return false,
-        };
 
         match self.selected_job.as_ref().unwrap().frequency.as_str() {
-            DAILY => true, // already validated above
-            WEEKLY => WEEK_DAYS.contains(&day.as_str()),
-            MONTHLY => match day.parse::<u8>() {
-                Ok(day) if (1..=31).contains(&day) => true,
-                _ => false,
-            },
+            REAL_TIME => true,
+            DAILY => self.is_hour_valid(hour),
+            WEEKLY => self.is_hour_valid(hour) && WEEK_DAYS.contains(&day.as_str()),
+            _ => false,
+        }
+    }
+
+    // Parse and validate hour (0-23)
+    fn is_hour_valid(&self, hour: &str) -> bool {
+        match hour.parse::<u8>() {
+            Ok(h) if h <= 23 => true,
             _ => false,
         }
     }
@@ -235,13 +235,14 @@ impl App {
             Ok(_) => {
                 self.jobs = jobs_to_update_map;
                 self.reset_values();
-            },
+            }
             Err(e) => println!("{e}"), //TODO: add popup for the error
         };
     }
 
     pub fn open_log_modal(&mut self, log: Log) -> Result<()> {
         self.event = None;
+        self.active_component = Some(Component::Log);
         self.selected_log = Some(log);
         self.active_modal = Some(Modal::Log);
         Ok(())

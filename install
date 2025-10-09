@@ -12,19 +12,93 @@ line() {
 }
 
 # Init logic ───────────────────────────────────────────────────────────────────────────
-clear
+line
 set -e
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
 
-log "Installing syncrab..."
-echo $DIR
+# Installing binaries ──────────────────────────────────────────────────────────────────
+log "Installing syncrab (the TUI)..."
 cargo install --path . --bin syncrab
 line
 
-log "Installing syncrab_pb..."
-cargo install --path . --bin syncrab_pb
+log "Installing syncrab_b (the backup batch performer)..."
+cargo install --path . --bin syncrab_b
+line
+
+log "Installing syncrab_w (the real-time files synchroniser)..."
+cargo install --path . --bin syncrab_w
+line
+
+# Setting up DB ────────────────────────────────────────────────────────────────────────
+log "Creating the database..."
+
+DB_FILE="$HOME/.cargo/bin/syncrab.db"
+
+sqlite3 "$DB_FILE" <<EOF
+CREATE TABLE IF NOT EXISTS jobs (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    frequency   TEXT NOT NULL,
+    hour        NUMERIC,
+    day         TEXT,
+    source      TEXT NOT NULL,
+    target      TEXT NOT NULL,
+    active      INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS logs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    startstamp      TEXT NOT NULL,
+    endstamp        TEXT NOT NULL,
+    status          TEXT NOT NULL,
+    success_count   INTEGER NOT NULL,
+    failed_count    INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS log_results (
+    log_id      INTEGER NOT NULL,
+    frequency   TEXT NOT NULL,
+    message     TEXT NOT NULL,
+    source      TEXT NOT NULL,
+    target      TEXT NOT NULL
+);
+EOF
+
+line
+
+# Setting up watcher via Systemd ───────────────────────────────────────────────────────
+log "Initialising the files synchroniser via Systemd..."
+
+SERVICE_FILE="$HOME/.config/systemd/user/syncrab_w.service"
+BIN_PATH="$HOME/.cargo/bin/syncrab_w"
+
+mkdir -p "$(dirname "$SERVICE_FILE")"
+
+cat > "$SERVICE_FILE" <<EOF
+[Unit]
+Description=Syncrab Real-Time File Synchroniser
+
+[Service]
+ExecStart=$BIN_PATH
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+EOF
+
+systemctl --user daemon-reexec
+systemctl --user daemon-reload
+systemctl --user enable --now syncrab_w.service
+line
+
+# Scheduling batch via cron ────────────────────────────────────────────────────────────
+log "Scheduling the backup batch via cron every hour..."
+
+CRON_JOB="0 * * * * $HOME/.cargo/bin/syncrab_b"
+
+# Add to crontab if not already present
+bash -c "( crontab -l 2>/dev/null | grep -v syncrab_b ; echo \"$CRON_JOB\" ) | crontab -"
 line
 
 success "Installation complete."

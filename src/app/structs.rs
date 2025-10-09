@@ -3,8 +3,8 @@ use std::{fmt, str::FromStr};
 
 // mods ─────────────────────────────────────────────────────────
 use crate::consts::{
-    ACTIVE, ALL, DAILY, DAY, DELIMITERS, HOUR, INACTIVE, JOURNAL, MONTHLY, REPLACE_WITH, SEARCH,
-    SOURCE, TARGET, TO_REPLACE, WEEKLY,
+    ACTIVE, ALL, DAILY, DAY, DELIMITERS, HOUR, INACTIVE, JOURNAL, LOG, REAL_TIME, REPLACE_WITH,
+    SEARCH, SOURCE, TARGET, TO_REPLACE, WEEKLY,
 };
 
 // Crates ───────────────────────────────────────────────────────
@@ -68,13 +68,14 @@ impl FromStr for Filter {
 pub enum Component {
     Search,
     Journal,
+    Log,
     Source,
     Target,
     Hour,
     Day,
     Daily,
     Weekly,
-    Monthly,
+    RealTime,
     ToReplace,
     ReplaceWith,
 }
@@ -88,7 +89,7 @@ impl Component {
             DAY => Component::Day,
             DAILY => Component::Daily,
             WEEKLY => Component::Weekly,
-            MONTHLY => Component::Monthly,
+            REAL_TIME => Component::RealTime,
             TO_REPLACE => Component::ToReplace,
             REPLACE_WITH => Component::ReplaceWith,
             _ => panic!("❌ Could not parse the value [{}] to the enum Component", s),
@@ -99,13 +100,14 @@ impl Component {
         match self {
             Component::Search => SEARCH,
             Component::Journal => JOURNAL,
+            Component::Log => LOG,
             Component::Source => SOURCE,
             Component::Target => TARGET,
             Component::Hour => HOUR,
             Component::Day => DAY,
             Component::Daily => DAILY,
             Component::Weekly => WEEKLY,
-            Component::Monthly => MONTHLY,
+            Component::RealTime => REAL_TIME,
             Component::ToReplace => TO_REPLACE,
             Component::ReplaceWith => REPLACE_WITH,
         }
@@ -127,44 +129,38 @@ impl Component {
     pub fn is_table(&self) -> bool {
         matches!(
             &self,
-            Component::Daily | Component::Weekly | Component::Monthly | Component::Journal
+            Component::Daily
+                | Component::Weekly
+                | Component::RealTime
+                | Component::Journal
+                | Component::Log
         )
     }
 
-    pub fn is_journal(&self) -> bool {
-        self == &Component::Journal
-    }
-
-    pub fn next(self, is_daily: bool) -> Self {
-        match (is_daily, &self) {
-            (true, Component::Source) => Component::Target,
-            (true, Component::Target) => Component::Hour,
-            (true, Component::Hour) => Component::Source,
-
-            (false, Component::Source) => Component::Target,
-            (false, Component::Target) => Component::Hour,
-            (false, Component::Hour) => Component::Day,
-            (false, Component::Day) => Component::Source,
-
-            (_, Component::ReplaceWith) => Component::ToReplace,
-            (_, Component::ToReplace) => Component::ReplaceWith,
+    pub fn next(self, freq: Option<Component>) -> Self {
+        match (freq, &self) {
+            (Some(_), Component::Source) => Component::Target,
+            (Some(Component::RealTime), Component::Target) => Component::Source,
+            (Some(Component::Daily | Component::Weekly), Component::Target) => Component::Hour,
+            (Some(Component::Daily), Component::Hour) => Component::Source,
+            (Some(Component::Weekly), Component::Hour) => Component::Day,
+            (Some(Component::Weekly), Component::Day) => Component::Source,
+            (None, Component::ReplaceWith) => Component::ToReplace,
+            (None, Component::ToReplace) => Component::ReplaceWith,
             _ => self,
         }
     }
 
-    pub fn previous(self, is_daily: bool) -> Self {
-        match (is_daily, &self) {
-            (true, Component::Hour) => Component::Target,
-            (true, Component::Target) => Component::Source,
-            (true, Component::Source) => Component::Hour,
-
-            (false, Component::Day) => Component::Hour,
-            (false, Component::Hour) => Component::Target,
-            (false, Component::Target) => Component::Source,
-            (false, Component::Source) => Component::Day,
-
-            (_, Component::ReplaceWith) => Component::ToReplace,
-            (_, Component::ToReplace) => Component::ReplaceWith,
+    pub fn previous(self, freq: Option<Component>) -> Self {
+        match (freq, &self) {
+            (Some(_), Component::Target) => Component::Source,
+            (Some(_), Component::Hour) => Component::Target,
+            (Some(Component::RealTime), Component::Source) => Component::Target,
+            (Some(Component::Daily), Component::Source) => Component::Hour,
+            (Some(Component::Weekly), Component::Day) => Component::Hour,
+            (Some(Component::Weekly), Component::Source) => Component::Day,
+            (None, Component::ReplaceWith) => Component::ToReplace,
+            (None, Component::ToReplace) => Component::ReplaceWith,
             _ => self,
         }
     }
@@ -175,13 +171,15 @@ impl fmt::Display for Component {
         match self {
             Component::Search => write!(f, "{}", SEARCH),
             Component::Journal => write!(f, "{}", JOURNAL),
+            Component::Log => write!(f, "{}", LOG),
             Component::Source => write!(f, "{}", SOURCE),
             Component::Target => write!(f, "{}", TARGET),
             Component::Hour => write!(f, "{}", HOUR),
             Component::Day => write!(f, "{}", DAY),
             Component::Daily => write!(f, "{}", DAILY),
             Component::Weekly => write!(f, "{}", WEEKLY),
-            Component::Monthly => write!(f, "{}", MONTHLY),
+            Component::RealTime => write!(f, "{}", REAL_TIME),
+
             Component::ToReplace => write!(f, "{}", TO_REPLACE),
             Component::ReplaceWith => write!(f, "{}", REPLACE_WITH),
         }

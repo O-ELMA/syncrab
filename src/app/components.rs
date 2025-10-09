@@ -27,12 +27,12 @@ use crate::{
         ARROW_UP, COL_BEIGE, COL_BLUE, COL_BORDER, COL_GRAY, COL_GREEN, COL_LBROWN, COL_ORANGE,
         COL_PURPLE, COL_TITLE, DAILY, DAY, EMOJI_FILTER, EMOJI_SEARCH, EMOJI_SECTION, EMOJI_STATS,
         EMOJI_STATUS_FAILED, EMOJI_STATUS_OTHER, EMOJI_STATUS_PARTIAL, EMOJI_STATUS_SUCCESS,
-        FAILED, FILTER, HOUR, INACTIVE, JOURNAL, LOG, MONTHLY, PARTIAL, REPLACE, REPLACE_WITH,
-        SEARCH, SEPARATOR, SHORTCUT_DAILY, SHORTCUT_FILTER, SHORTCUT_MONTHLY, SHORTCUT_SEARCH,
+        FAILED, FILTER, HOUR, INACTIVE, JOURNAL, LOG, PARTIAL, REAL_TIME, REPLACE, REPLACE_WITH,
+        SEARCH, SEPARATOR, SHORTCUT_DAILY, SHORTCUT_FILTER, SHORTCUT_REAL_TIME, SHORTCUT_SEARCH,
         SHORTCUT_WEEKLY, SLIDER, SOURCE, SUCCESS, TARGET, TO_REPLACE, WEEKLY,
     },
     structs::Stat,
-    utils::{capitalise, field, get_columns_info_by_key},
+    utils::{capitalise, field, get_columns_info_by_key, into_lines, get_active_jobs, get_active_logs},
 };
 
 // Title ─────────────────────────────────────────────────────────
@@ -48,11 +48,11 @@ pub fn title(area: Rect, buf: &mut Buffer) {
 // Header ────────────────────────────────────────────────────────
 pub fn header(area: Rect, buf: &mut Buffer, stats: &HashMap<&'static str, Stat>) {
     let horizotal_layout = Layout::horizontal(vec![Constraint::Fill(1); 3]);
-    let [daily_area, weekly_area, monthly_area] = horizotal_layout.areas(area);
+    let [real_time_area, daily_area, weekly_area] = horizotal_layout.areas(area);
 
+    card(real_time_area, buf, stats.get(REAL_TIME).unwrap());
     card(daily_area, buf, stats.get(DAILY).unwrap());
     card(weekly_area, buf, stats.get(WEEKLY).unwrap());
-    card(monthly_area, buf, stats.get(MONTHLY).unwrap());
 }
 
 fn card(area: Rect, buf: &mut Buffer, stat: &Stat) {
@@ -95,17 +95,19 @@ pub fn search(area: Rect, buf: &mut Buffer, app: &mut App) {
 
     let mut search_style = (COL_TITLE, COL_BORDER);
 
-    if let Some(MouseEvent { column, row, .. }) = app.event {
-        let pos = Position::new(column, row);
+    if app.active_modal.is_none() {
+        if let Some(MouseEvent { column, row, .. }) = app.event {
+            let pos = Position::new(column, row);
 
-        if left.contains(pos) {
+            if left.contains(pos) {
+                search_style = enable_search(app, left, buf);
+            } else if right.contains(pos) && !app.filter_clicked {
+                app.filter_clicked = true;
+                app.filter = app.filter.next();
+            }
+        } else if app.active_component == Some(Component::Search) {
             search_style = enable_search(app, left, buf);
-        } else if right.contains(pos) && !app.filter_clicked {
-            app.filter_clicked = true;
-            app.filter = app.filter.next();
         }
-    } else if app.active_component == Some(Component::Search) {
-        search_style = enable_search(app, left, buf);
     }
 
     Paragraph::new(app.search.value.as_str())
@@ -151,11 +153,11 @@ pub fn section(area: Rect, buf: &mut Buffer, app: &mut App) {
             Constraint::Fill(1),
             Constraint::Fill(1),
         ]);
-        let [daily_area, weekly_area, monthly_area] = vertical_layout.areas(area);
+        let [real_time_area, daily_area, weekly_area] = vertical_layout.areas(area);
 
+        block(real_time_area, buf, REAL_TIME, SHORTCUT_REAL_TIME, app);
         block(daily_area, buf, DAILY, SHORTCUT_DAILY, app);
         block(weekly_area, buf, WEEKLY, SHORTCUT_WEEKLY, app);
-        block(monthly_area, buf, MONTHLY, SHORTCUT_MONTHLY, app);
     }
 }
 
@@ -163,30 +165,32 @@ fn block(area: Rect, buf: &mut Buffer, freq: &str, shortcut: char, app: &mut App
     let name = &app.stats.get(freq).unwrap().name;
 
     let mut block_style = COL_BORDER;
-    if let Some(MouseEvent { column, row, .. }) = app.event {
-        if app.active_modal != Some(Modal::Job) {
-            let pos = Position::new(column, row);
 
-            // If the block is clicked, set it as active
-            if area.contains(pos) {
-                app.active_component = Some(Component::from_str(freq));
-                block_style = COL_BEIGE;
-            }
-            // If clicked outside, disable the active component if it was previously active
-            else if app
-                .active_component
-                .as_ref()
-                .map_or(false, |c| c == &Component::from_str(freq))
-            {
-                app.active_component = None;
+    if app.active_modal.is_none() {
+        if let Some(MouseEvent { column, row, .. }) = app.event {
+            if app.active_modal != Some(Modal::Job) {
+                let pos = Position::new(column, row);
+
+                // If the block is clicked, set it as active
+                if area.contains(pos) {
+                    app.active_component = Some(Component::from_str(freq));
+                    block_style = COL_BEIGE;
+                }
+                // If clicked outside, disable the active component if it was previously active
+                else if app
+                    .active_component
+                    .as_ref()
+                    .map_or(false, |c| c == &Component::from_str(freq))
+                {
+                    app.active_component = None;
+                }
             }
         }
-    }
-
-    // Check if the component is already active from keymaps
-    if let Some(comp) = app.active_component.as_ref() {
-        if comp == &Component::from_str(freq) {
-            block_style = COL_BEIGE;
+        // Check if the component is already active from keymaps
+        if let Some(comp) = app.active_component.as_ref() {
+            if comp == &Component::from_str(freq) {
+                block_style = COL_BEIGE;
+            }
         }
     }
 
@@ -241,35 +245,35 @@ pub fn table(area: Rect, buf: &mut Buffer, freq: &str, app: &mut App) {
             if let Some(log_results) = &log.log_results {
                 data = log_results
                     .iter()
-                    .map(|log_result| {
+                    .enumerate()
+                    .map(|(i, log_result)| {
+                        let mut highest_line = 1;
                         let cells = log_result
                             .get_fields_data()
                             .into_iter()
                             .enumerate()
                             .map(|(i, field)| {
-                                Cell::from(Text::from(field).alignment(col_alignment[i]))
+                                let (lines, content) = into_lines(field);
+                                if lines > highest_line {
+                                    highest_line = lines;
+                                }
+                                Cell::from(Text::from(content).alignment(col_alignment[i]))
                             })
                             .collect::<Vec<Cell>>();
 
-                        Row::new(cells).fg(COL_GRAY)
+                        let mut row = Row::new(cells).fg(COL_GRAY).height(highest_line);
+                        if selected_index == Some(i) {
+                            row = row.fg(COL_BEIGE).add_modifier(Modifier::BOLD);
+                        }
+
+                        row
                     })
                     .collect();
             }
         }
     } else if freq == JOURNAL {
         // Render Journal
-        let mut logs = app.logs.clone();
-
-        if !search_term.is_empty() {
-            logs.retain(|log| {
-                log.startstamp.to_lowercase().contains(search_term)
-                    || log.endstamp.to_lowercase().contains(search_term)
-                    || log.status.to_lowercase().contains(search_term)
-                    || log.success_count.to_string().contains(search_term)
-                    || log.failed_count.to_string().contains(search_term)
-                    || log.id.unwrap().to_string().contains(search_term)
-            });
-        }
+        let logs = get_active_logs(search_term, &app.logs);
 
         data = logs
             .iter()
@@ -291,37 +295,37 @@ pub fn table(area: Rect, buf: &mut Buffer, freq: &str, app: &mut App) {
             })
             .collect();
 
+        let mut border_style = COL_BORDER;
+
+        if app.active_modal.is_none() {
+            if let Some(MouseEvent { column, row, .. }) = app.event {
+                let pos = Position::new(column, row);
+
+                if table_area.contains(pos) {
+                    border_style = COL_BEIGE;
+                    app.active_component = Some(Component::Journal);
+                }
+            } else if app.active_component == Some(Component::Journal) {
+                border_style = COL_BEIGE;
+                app.active_component = Some(Component::Journal);
+            }
+        }
+
         let block = Block::bordered()
             .padding(Padding::new(1, 1, 0, 0))
-            .border_style(COL_BORDER)
+            .border_style(border_style)
             .border_type(BorderType::Rounded);
         block.clone().render(area, buf);
 
-        table_area = block.inner(area)
+        table_area = block.inner(area);
     }
     // Render Jobs
     else {
-        let mut jobs = app.jobs.get(freq).unwrap().clone();
-
-        // Filter active jobs
-        match app.filter {
-            Filter::All => {}
-            Filter::Active => {
-                jobs.retain(|job| job.active == 1);
-            }
-            Filter::Inactive => {
-                jobs.retain(|job| job.active == 0);
-            }
-        }
-
-        // Filter jobs via search term
-        if !search_term.is_empty() {
-            jobs.retain(|job| {
-                job.source.to_lowercase().contains(search_term)
-                    || job.target.to_lowercase().contains(search_term)
-                    || job.id.unwrap().to_string().contains(search_term)
-            });
-        }
+        let jobs = get_active_jobs(
+            search_term,
+            &app.filter,
+            &app.jobs.get(freq).unwrap()
+        );
 
         data = jobs
             .iter()
@@ -360,8 +364,12 @@ pub fn form(area: Rect, buf: &mut Buffer, app: &mut App) {
     let mut form_name = "";
 
     if let Some(job) = &app.selected_job {
-        fields_num = 3;
         form_name = &job.frequency;
+        if &job.frequency == REAL_TIME {
+            fields_num = 2;
+        } else {
+            fields_num = 3;
+        }
     } else if app.active_modal == Some(Modal::Replace) {
         fields_num = 2;
         form_name = REPLACE;
@@ -378,12 +386,17 @@ pub fn form(area: Rect, buf: &mut Buffer, app: &mut App) {
     };
 
     let (areas, labels, mut components): (Vec<_>, Vec<_>, Vec<_>) = match form_name {
+        REAL_TIME => (
+            vec![vertical_areas[0], vertical_areas[1]],
+            vec![SOURCE, TARGET],
+            vec![&mut app.source, &mut app.target],
+        ),
         DAILY => (
             vec![vertical_areas[0], vertical_areas[1], vertical_areas[2]],
             vec![SOURCE, TARGET, HOUR],
             vec![&mut app.source, &mut app.target, &mut app.hour],
         ),
-        WEEKLY | MONTHLY => {
+        WEEKLY => {
             let horizontal_layout = Layout::horizontal(vec![Constraint::Ratio(1, 2); 2]);
             let [left, right] = horizontal_layout.areas(vertical_areas[2]);
             (
@@ -449,7 +462,11 @@ pub fn modal(area: Rect, buf: &mut Buffer, app: &mut App) {
     let vertical_const: Constraint = match app.active_modal {
         Some(Modal::Log) => Constraint::Percentage(80),
         Some(Modal::Replace) => Constraint::Length(6),
-        Some(_) | None => Constraint::Length(9),
+        Some(Modal::Job) => match app.selected_job.as_ref().unwrap().frequency.as_str() {
+            REAL_TIME => Constraint::Length(6),
+            _ => Constraint::Length(9),
+        },
+        None => Constraint::Length(9),
     };
 
     let vertical = Layout::vertical([vertical_const]).flex(Flex::Center);
@@ -493,7 +510,7 @@ pub fn modal(area: Rect, buf: &mut Buffer, app: &mut App) {
 
 // Footer ───────────────────────────────────────────────────────
 pub fn footer(area: Rect, buf: &mut Buffer, app: &App) {
-    let mut shortcuts = Vec::with_capacity(6); // Pre-allocate space for expected max number of shortcuts
+    let mut shortcuts = Vec::with_capacity(9); // Pre-allocate space for expected max number of shortcuts
 
     if app.active_modal == Some(Modal::Job) {
         shortcuts.push(ACTION_CLOSE);
@@ -516,7 +533,7 @@ pub fn footer(area: Rect, buf: &mut Buffer, app: &App) {
             }
         } else {
             let stat = app.stats.get(comp.to_str()).unwrap();
-            let count: u8 = match app.filter {
+            let count: u16 = match app.filter {
                 Filter::All => stat.count,
                 Filter::Active => stat.active_count,
                 Filter::Inactive => stat.active_count,

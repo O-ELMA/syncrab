@@ -15,15 +15,50 @@ line() {
 }
 
 # Init logic ───────────────────────────────────────────────────────────────────────────
-clear
-set -e
+line
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
 
+# Uninstall binaries ───────────────────────────────────────────────────────────────────
 log "Uninstalling syncrab..."
 cargo uninstall syncrab || warning "syncrab not found."
+
+log "Uninstalling syncrab_b..."
+cargo uninstall syncrab_b || warning "syncrab_b not found."
+
+log "Uninstalling syncrab_w..."
+cargo uninstall syncrab_w || warning "syncrab_w not found."
+line
+
+log "Deleting the database..."
 rm /home/$USER/.cargo/bin/syncrab.db
+line
+
+# Remove systemd service ───────────────────────────────────────────────────────────────
+log "Removing Systemd service for syncrab_w..."
+
+SERVICE_FILE="$HOME/.config/systemd/user/syncrab_w.service"
+
+if [[ -f "$SERVICE_FILE" ]]; then
+    systemctl --user disable --now syncrab_w.service || warning "Service not active."
+    rm "$SERVICE_FILE"
+    systemctl --user daemon-reload
+    systemctl --user daemon-reexec
+    log "Systemd service removed."
+else
+    warning "Systemd service file not found."
+fi
+line
+
+# Remove cron job ───────────────────────────────────────────────────────────────────────
+log "Removing cron job for syncrab_b..."
+
+TMP_CRON=$(mktemp)
+
+crontab -l 2>/dev/null | grep -v 'syncrab_b' > "$TMP_CRON" || true
+crontab "$TMP_CRON"
+rm "$TMP_CRON"
 line
 
 success "Uninstallation complete."

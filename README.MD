@@ -6,6 +6,8 @@ A Rust **TUI** and **CLI** for automating your backup jobs. Includes two binarie
 
 ![Logs Menu](assets/logs_menu.png)
 
+![Log Results Menu](assets/logs_menu_2.png)
+
 ---
 
 ## **Pre-Requisites** 🔧
@@ -13,8 +15,14 @@ A Rust **TUI** and **CLI** for automating your backup jobs. Includes two binarie
 1. **Rust**: Install `rustup` to compile and run. [(more on Rust)](https://www.rust-lang.org/tools/install).
 2. **SQLite**: Install `sqlite` to store backup jobs & logs. [(more on SQLite)](https://sqlite.org/).
 
+   For arch-based systems, you can use `yay`:
    ```bash 
    yay -S rustup sqlite --noconfirm && rustup default stable
+   ```
+
+   or `paru`:
+   ```bash 
+   paru -S rustup sqlite --noconfirm && rustup default stable
    ```
 
 ---
@@ -33,41 +41,19 @@ A Rust **TUI** and **CLI** for automating your backup jobs. Includes two binarie
    syncrab
    ```
 
-3. **Run the Backup job manually**:
+3. **Run the backup job manually** (whenever you want):
 
-   `pb` is mnemonic for `perform backup`.
-
-   ```bash
-   syncrab_pb
-   ```
-
-   * `syncrab_pb` can be run **without any arguments** or with `all`, `daily`, `weekly`, or `monthly` as an argument:
+   * `syncrab_b` can be run **without any arguments** or with `all`, `realtime`, `daily`, or `weekly` as an argument:
 
      ```bash
-     syncrab_pb            # sync jobs accross all sections that match the the current hour and day's criteria
-     syncrab_pb all        # sync all jobs
-     syncrab_pb daily      # sync all daily jobs
-     syncrab_pb weekly     # sync all weekly jobs
-     syncrab_pb monthly    # sync all monthly jobs
+     syncrab_b            # sync active daily & weekly jobs that match the the current hour and day's criteria
+     syncrab_b all        # sync all jobs (both active and inactive)
+     syncrab_b realtime   # sync all active real-time jobs
+     syncrab_b daily      # sync all active daily jobs
+     syncrab_b weekly     # sync all active weekly jobs
      ```
 
-4. 🚨 **Schedule automatic backups**:
-
-   4.1. Open your crontab via:
-
-   ```bash
-   crontab -e
-   ```
-
-   4.2. then add the following line to run `syncrab_pb` every hour:
-
-   ```bash
-   0 * * * * /home/$USER/.cargo/bin/syncrab_pb
-   ```
-
-   4.3. and save the file.
-
-5. **Uninstall**:
+4. **Uninstall**:
 
    Run the uninstall script:
 
@@ -101,9 +87,9 @@ You can use mouse clicks & scrolls across the majority of the app componets.
 ### **General Keymaps:**
 - `f`: Next job filter
 - `s`: Jump to search
+- `r`: Jump to realtime table
 - `d`: Jump to daily table
 - `w`: Jump to weekly table
-- `m`: Jump to monthly table
 - `q`: Quit app
 - `Tab`: Toggle between logs/jobs menus
 - `Ctrl+r`: Replace a text accross all Jobs' Source & Target fields
@@ -129,5 +115,17 @@ You can use mouse clicks & scrolls across the majority of the app componets.
 
 ### **Day**
 
-* **Type**: 2 digits (0-31) for monthly jobs, 3 characters (Mon, Tue, Wed, etc.) for weekly jobs
-* **Description**: Specifies the day when the job should run. Use a number between 01 and 31 for monthly jobs. For weekly jobs, use the three-letter abbreviation for the day (e.g., Mon for Monday, Tue for Tuesday...).
+* **Type**: 3 characters (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+* **Description**: Specifies the day when the job should run. Use the three-letter abbreviation for the day (e.g., Mon for Monday, Tue for Tuesday...).
+
+
+### **Usage Example:**
+
+Let’s say you enter the following paths:
+
+* **📂 Source:** `/home/my files/My Pictures` 
+* **📂 Target:** `/my hard drive/PC/Stored Pictures`
+
+When the backup runs, the entire `My Pictures` folder (along with all its files and subfolders) from the **Source** folder will be copied to the **Target** location. Specifically, the contents of the `My Pictures` folder will be placed inside the `Stored Pictures` folder located within `/my hard drive/PC`.
+
+If the target directories, namely `my hard drive` or `PC`, don’t already exist, they will be automatically created during the process.
