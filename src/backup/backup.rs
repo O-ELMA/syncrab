@@ -9,7 +9,7 @@ use syncrab::{
     consts::{ALL, DAILY, REAL_TIME, VALID_OPTS, WEEKLY},
     db::db::{get_jobs_to_run, init_db},
     structs::{Job, Log, LogResult},
-    utils::{are_paths_valid, copy_dir, log_results, normalise_path},
+    utils::{are_paths_valid, copy_dir, count_children, log_results, normalise_path},
 };
 
 // Init ──────────────────────────────────────────────────────────
@@ -35,10 +35,24 @@ fn main() {
             continue;
         }
 
-        for job in jobs {
+        println!("\n🚀 Performing {} backups...", freq);
+        println!("──────────────────────────────────────────────────────────\n");
+
+        let jobs_count = jobs.len();
+        let jobs_width = jobs_count.to_string().len();
+
+        for (i, job) in jobs.iter().enumerate() {
             let frequency = freq.to_string();
             let source = normalise_path(&job.source);
             let target = normalise_path(&job.target);
+
+            println!(
+                "[{}/{}] - Copying [{}] 👉 [{}]",
+                format!("{:0width$}", i + 1, width = jobs_width),
+                jobs_count,
+                source.display(),
+                target.display()
+            );
 
             if !are_paths_valid(&frequency, job, &source, &target, &mut failed_directories) {
                 continue;
@@ -57,7 +71,9 @@ fn main() {
                 }
             };
 
-            match copy_dir(&source, &dest_path) {
+            let children_count = count_children(&source);
+
+            match copy_dir(&source, &dest_path, children_count, &mut 0) {
                 Ok(_) => success_directories.push(LogResult::new(
                     frequency,
                     "OK".into(),
@@ -71,7 +87,14 @@ fn main() {
                     job.target.clone(),
                 )),
             };
+
+            if children_count > 1 {
+                println!("");
+            }
         }
+
+        println!("\n──────────────────────────────────────────────────────────");
+        println!("✅ Backups completed successfully!");
     }
 
     log_results(log, success_directories, failed_directories);

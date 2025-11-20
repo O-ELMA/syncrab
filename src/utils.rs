@@ -6,6 +6,7 @@ use std::{
     fs::{OpenOptions, copy, create_dir_all, read_dir},
     io::Write,
     path::{Path, PathBuf},
+    process::Command,
 };
 
 // Crates ────────────────────────────────────────────────────────
@@ -181,10 +182,15 @@ pub fn copy_with_name(source: &PathBuf, target: &PathBuf) -> Result<(), String> 
         }
     };
 
-    copy_dir(source, &target_with_name)
+    copy_dir(source, &target_with_name, 0, &mut 0)
 }
 
-pub fn copy_dir(source: &PathBuf, target: &PathBuf) -> Result<(), String> {
+pub fn copy_dir(
+    source: &PathBuf,
+    target: &PathBuf,
+    total: usize,
+    count: &mut usize,
+) -> Result<(), String> {
     if source.is_file() {
         // Create parent dir if it doesn't exist
         if let Some(parent) = target.parent() {
@@ -239,6 +245,11 @@ pub fn copy_dir(source: &PathBuf, target: &PathBuf) -> Result<(), String> {
                     e
                 )
             })?;
+            *count += 1;
+            draw_progress_bar(&count, &total);
+            //println!("count => {:?}", count);
+            //bar.update(*count).unwrap();
+            //bar.flush().unwrap();
         }
     } else if source.is_dir() {
         create_dir_all(target).map_err(|e| {
@@ -265,7 +276,7 @@ pub fn copy_dir(source: &PathBuf, target: &PathBuf) -> Result<(), String> {
             })?;
             let path = entry.path();
             let new_target = target.join(entry.file_name());
-            copy_dir(&path, &new_target)?;
+            copy_dir(&path, &new_target, total, count)?;
         }
     } else {
         return Err(format!(
@@ -277,6 +288,40 @@ pub fn copy_dir(source: &PathBuf, target: &PathBuf) -> Result<(), String> {
     Ok(())
 }
 
+pub fn count_children(path: &PathBuf) -> usize {
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("find {} | wc -l", path.display()))
+        .output()
+        .expect("Failed to execute command");
+
+    let count_str = String::from_utf8_lossy(&output.stdout);
+    count_str.trim().parse::<usize>().unwrap_or(0)
+}
+
+fn draw_progress_bar(current: &usize, total: &usize) {
+    // Don't draw the bar if the total is one item or no item
+    if *total == 0 || *total == 1 {
+        return;
+    }
+
+    let progress = (*current as f32) / (*total as f32);
+    let bar_width = 50;
+    let progress_length = (progress * bar_width as f32).round() as usize;
+    let progress_length = progress_length.min(bar_width);
+    let bar = "█".repeat(progress_length) + &"-".repeat(bar_width - progress_length);
+
+    // Use print! instead of println! to avoid a newline after each update
+    print!(
+        "\r[{} / {}] |{}| {:.2}%",
+        current,
+        total,
+        bar,
+        progress * 100.0
+    );
+
+    std::io::stdout().flush().unwrap();
+}
 pub fn fallback_log(log: &Log, results: &Vec<LogResult>, error: &str) {
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(LOG_PATH) {
         let _ = writeln!(file, "=== Cron job failed at {} ===", log.endstamp);
@@ -471,4 +516,3 @@ pub fn get_active_logs<'a>(search_term: &str, logs: &'a [Log]) -> Vec<&'a Log> {
 
     logs
 }
-
