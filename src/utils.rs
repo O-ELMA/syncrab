@@ -247,9 +247,6 @@ pub fn copy_dir(
             })?;
             *count += 1;
             draw_progress_bar(&count, &total);
-            //println!("count => {:?}", count);
-            //bar.update(*count).unwrap();
-            //bar.flush().unwrap();
         }
     } else if source.is_dir() {
         create_dir_all(target).map_err(|e| {

@@ -12,7 +12,6 @@ color-eyre = "=0.6.5"
 chrono = "0.4.42"
 arboard = "3.6.1"
 notify = "8.2.0"
-tqdm = "0.8.0"
 
 [[bin]]
 name = "syncrab"
