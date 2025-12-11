@@ -21,18 +21,21 @@ use super::{
 };
 use crate::{
     consts::{
-        ACTION_BACKUP, ACTION_CLOSE, ACTION_DELETE, ACTION_DISABLE, ACTION_EDIT, ACTION_ENABLE,
-        ACTION_ERASE, ACTION_LOGS, ACTION_MOVE, ACTION_NEW, ACTION_QUIT, ACTION_TOGGLE,
-        ACTION_UPDATE, ACTION_VIEW, ACTIVE, ACTIVE_SLIDER, APP_SUBTITLE, APP_TITLE, ARROW_DOWN,
-        ARROW_UP, COL_BEIGE, COL_BLUE, COL_BORDER, COL_GRAY, COL_GREEN, COL_LBROWN, COL_ORANGE,
-        COL_PURPLE, COL_TITLE, DAILY, DAY, EMOJI_FILTER, EMOJI_SEARCH, EMOJI_SECTION, EMOJI_STATS,
-        EMOJI_STATUS_FAILED, EMOJI_STATUS_OTHER, EMOJI_STATUS_PARTIAL, EMOJI_STATUS_SUCCESS,
-        FAILED, FILTER, HOUR, INACTIVE, JOURNAL, LOG, PARTIAL, REAL_TIME, REPLACE, REPLACE_WITH,
-        SEARCH, SEPARATOR, SHORTCUT_DAILY, SHORTCUT_FILTER, SHORTCUT_REAL_TIME, SHORTCUT_SEARCH,
-        SHORTCUT_WEEKLY, SLIDER, SOURCE, SUCCESS, TARGET, TO_REPLACE, WEEKLY,
+        ACTION_BACKUP, ACTION_CLONE, ACTION_CLOSE, ACTION_DELETE, ACTION_DISABLE, ACTION_EDIT,
+        ACTION_ENABLE, ACTION_ERASE, ACTION_LOGS, ACTION_MOVE, ACTION_NEW, ACTION_QUIT,
+        ACTION_TOGGLE, ACTION_UPDATE, ACTION_VIEW, ACTIVE, ACTIVE_SLIDER, APP_SUBTITLE, APP_TITLE,
+        ARROW_DOWN, ARROW_UP, COL_BEIGE, COL_BLUE, COL_BORDER, COL_GRAY, COL_GREEN, COL_LBROWN,
+        COL_ORANGE, COL_PURPLE, COL_TITLE, DAILY, DAY, EMOJI_FILTER, EMOJI_SEARCH, EMOJI_SECTION,
+        EMOJI_STATS, EMOJI_STATUS_FAILED, EMOJI_STATUS_OTHER, EMOJI_STATUS_PARTIAL,
+        EMOJI_STATUS_SUCCESS, FAILED, FILTER, HOUR, INACTIVE, JOURNAL, LOG, PARTIAL, REAL_TIME,
+        REPLACE, REPLACE_WITH, SEARCH, SEPARATOR, SHORTCUT_DAILY, SHORTCUT_FILTER,
+        SHORTCUT_REAL_TIME, SHORTCUT_SEARCH, SHORTCUT_WEEKLY, SLIDER, SOURCE, SUCCESS, TARGET,
+        TO_REPLACE, WEEKLY,
     },
     structs::Stat,
-    utils::{capitalise, field, get_columns_info_by_key, into_lines, get_active_jobs, get_active_logs},
+    utils::{
+        capitalise, field, get_active_jobs, get_active_logs, get_columns_info_by_key, into_lines,
+    },
 };
 
 // Title ─────────────────────────────────────────────────────────
@@ -321,11 +324,7 @@ pub fn table(area: Rect, buf: &mut Buffer, freq: &str, app: &mut App) {
     }
     // Render Jobs
     else {
-        let jobs = get_active_jobs(
-            search_term,
-            &app.filter,
-            &app.jobs.get(freq).unwrap()
-        );
+        let jobs = get_active_jobs(search_term, &app.filter, &app.jobs.get(freq).unwrap());
 
         data = jobs
             .iter()
@@ -549,15 +548,14 @@ pub fn footer(area: Rect, buf: &mut Buffer, app: &App) {
                 shortcuts.push(ACTION_DELETE);
                 shortcuts.push(ACTION_EDIT);
                 shortcuts.push(ACTION_TOGGLE);
+                shortcuts.push(ACTION_CLONE);
 
                 if count > 1 {
                     shortcuts.push(ACTION_ENABLE);
                     shortcuts.push(ACTION_DISABLE);
-                    shortcuts.push(ACTION_CLOSE);
                 }
-
-                shortcuts.push(ACTION_CLOSE);
             }
+            shortcuts.push(ACTION_CLOSE);
         }
     } else {
         shortcuts.push(ACTION_LOGS);

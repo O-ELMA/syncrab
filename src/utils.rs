@@ -476,7 +476,13 @@ pub fn into_lines(content: String) -> (u16, String) {
 
 pub fn get_active_jobs<'a>(search_term: &str, filter: &Filter, jobs: &'a [Job]) -> Vec<&'a Job> {
     let jobs = if search_term.is_empty() {
-        jobs.iter().collect()
+        jobs.iter()
+            .filter(|job| match filter {
+                Filter::All => true,
+                Filter::Active => job.active == 1,
+                Filter::Inactive => job.active == 0,
+            })
+            .collect()
     } else {
         jobs.iter()
             .filter(|job| {

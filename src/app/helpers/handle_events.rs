@@ -11,7 +11,7 @@ use crate::{
         SHORTCUT_NEW, SHORTCUT_QUIT, SHORTCUT_REAL_TIME, SHORTCUT_SEARCH, SHORTCUT_WEEKLY,
     },
     structs::Job,
-    utils::{get_active_jobs, get_active_logs}
+    utils::{get_active_jobs, get_active_logs},
 };
 
 impl App {
@@ -81,6 +81,11 @@ impl App {
                 (_, KeyCode::Delete) => {
                     if let Some(job) = self.get_active_job(idx).cloned() {
                         self.delete_record(job);
+                    }
+                }
+                (KeyModifiers::CONTROL, KeyCode::Char('c')) => {
+                    if let Some(job) = self.get_active_job(idx).cloned() {
+                        self.clone_record(job);
                     }
                 }
                 (KeyModifiers::CONTROL, KeyCode::Char(' ')) => {
@@ -168,10 +173,7 @@ impl App {
                 let comp_str = comp.to_str();
 
                 let count = if comp == &Component::Journal {
-                    get_active_logs(
-                        &self.search.value.to_lowercase(), 
-                        &self.logs
-                    ).len()
+                    get_active_logs(&self.search.value.to_lowercase(), &self.logs).len()
                 } else if comp == &Component::Log {
                     self.selected_log
                         .as_ref()
@@ -182,10 +184,11 @@ impl App {
                         .len()
                 } else {
                     get_active_jobs(
-            &self.search.value.to_lowercase(),
+                        &self.search.value.to_lowercase(),
                         &self.filter,
-                        &self.jobs.get(comp_str).unwrap()
-                    ).len()
+                        &self.jobs.get(comp_str).unwrap(),
+                    )
+                    .len()
                 };
 
                 if let Some(curr_state) = self.states.get_mut(comp_str) {

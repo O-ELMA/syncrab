@@ -80,6 +80,7 @@ You can use mouse clicks & scrolls across the majority of the app componets.
 - `Enter`: Open a job or log record
 - `N`: Open new empty job form
 - `Del`: Delete selected job
+- `Ctrl+C`: Clone selected job
 - `Space`: Toggle backup job activation
 - `Alt+Space`: Disable all backup jobs in table
 - `Ctrl+Space`: Enable all backup jobs in table

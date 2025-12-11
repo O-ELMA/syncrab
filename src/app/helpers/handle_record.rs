@@ -80,6 +80,19 @@ impl App {
         }
     }
 
+    pub fn clone_record(&mut self, mut job: Job) {
+        job.id = None;
+
+        self.source.value = job.source.clone();
+        self.target.value = job.target.clone();
+        self.hour.value = job.hour.to_string();
+        self.day.value = job.day.clone().unwrap_or_default();
+
+        self.selected_job = Some(job);
+
+        self.commit_record();
+    }
+
     pub fn delete_record(&mut self, job: Job) {
         //TODO: popup to confirm delete
 

@@ -47,6 +47,7 @@ pub const ACTION_DELETE: &str = "🗑️ [Del] Delete";
 pub const ACTION_TOGGLE: &str = "⏯️ [Space] Toggle";
 pub const ACTION_DISABLE: &str = "🛑 [Alt+Space] Disable All";
 pub const ACTION_ENABLE: &str = "✅ [Ctrl+Space] Enable All";
+pub const ACTION_CLONE: &str = "📄📄 [Ctrl+C] Clone";
 pub const ACTION_UPDATE: &str = "💾 [Enter] Update";
 pub const ACTION_EDIT: &str = "📝 [Enter] Edit";
 pub const ACTION_VIEW: &str = "👀 [Enter] View";
