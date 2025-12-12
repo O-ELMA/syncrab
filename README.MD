@@ -1,12 +1,8 @@
 # **Syncrab** ✨
 
-A Rust **TUI** and **CLI** for automating your backup jobs. Includes two binaries: a TUI and a batch performer.
+A Rust **TUI** and **CLI** for automating your backup jobs. [![Built With Ratatui](https://img.shields.io/badge/Built_With_Ratatui-000?logo=ratatui&logoColor=fff)](https://ratatui.rs/)
 
-![Jobs Menu](assets/jobs_menu.png)
-
-![Logs Menu](assets/logs_menu.png)
-
-![Log Results Menu](assets/logs_menu_2.png)
+![Demo Video](assets/demo.gif)
 
 ---
 
@@ -132,18 +128,45 @@ Suppose you enter the following paths:
 * **📂 Source:** `/home/my files/My Pictures`
 * **📂 Target:** `~/my hard drive/PC/Backed up Pictures`
 
-When the backup runs:
+### I. either as **daily** or **weekly** backups:
 
-1. The entire **`My Pictures`** folder, including all files and subfolders, will be copied **as a folder**, not just its contents.
+1. When the backup job runs, the entire **`My Pictures`** folder will be copied **as a folder**, including all files and subfolders.
    The resulting structure will be:
 
    ```
    ~/my hard drive/PC/Backed up Pictures/My Pictures/
    ```
 
-2. If any folder mentioned in the target path does not already exist
+2. If any folder in the target path does not already exist
    (e.g., `my hard drive`, `PC`, or `Backed up Pictures`),
    the application will automatically create it.
 
-3. The `~` symbol is expanded to your home directory, i.e.: it will read as `/home/your_username` by the application.
+3. The `~` symbol is expanded to your home directory, meaning the target path effectively becomes: 
 
+   ```
+   /home/your_username/my hard drive/PC/Backed up Pictures
+   ```
+
+### II. as a **real-time** backup:
+
+1. A watcher is placed on the contents of the **`My Pictures`** folder, its files and subfolders.
+
+   - In real-time mode, the **`My Pictures`** folder itself is not copied into the target.
+
+   - Only the items inside **`My Pictures`** are mirrored (added, updated, or deleted) in the target folder.
+
+2. For example, if you add a new file **`image.png`** inside **`My Pictures`**, it will be copied directly into the target directory, resulting in:
+
+   ```
+   ~/my hard drive/PC/Backed up Pictures/image.png
+   ````
+
+   (Notice that the **`My Pictures`** folder was not copied in this mode.)
+
+3. The watcher only mirrors new changes in the folder, such as added, modified, or deleted files and subfolders, rather than recopying everything. This means any files or folders that were already inside **`My Pictures`** before you added it to real-time backups will not be copied.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE.txt).

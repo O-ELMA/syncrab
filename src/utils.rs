@@ -171,20 +171,6 @@ pub fn normalise_path(path: &str) -> PathBuf {
     PathBuf::from(path)
 }
 
-pub fn copy_with_name(source: &PathBuf, target: &PathBuf) -> Result<(), String> {
-    let target_with_name = match source.file_name() {
-        Some(name) => target.join(name),
-        None => {
-            return Err(format!(
-                "Source path [{}] has no file name",
-                source.display()
-            ));
-        }
-    };
-
-    copy_dir(source, &target_with_name, 0, &mut 0)
-}
-
 pub fn copy_dir(
     source: &PathBuf,
     target: &PathBuf,
