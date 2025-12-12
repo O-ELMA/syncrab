@@ -34,7 +34,7 @@ pub const COL_PURPLE: Color = Color::Rgb(159, 132, 181);
 pub const COL_BLUE: Color = Color::Rgb(116, 142, 195);
 pub const _COL_LBLUE: Color = Color::Rgb(140, 185, 201);
 pub const _COL_RED: Color = Color::Rgb(227, 113, 122);
-pub const _COL_MAGENTA: Color = Color::Rgb(196, 126, 145);
+pub const COL_MAGENTA: Color = Color::Rgb(196, 126, 145);
 pub const COL_GRAY: Color = Color::Rgb(107, 114, 128);
 
 pub const COL_TITLE: Color = COL_CYAN;

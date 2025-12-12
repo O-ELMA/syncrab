@@ -9,8 +9,8 @@ use ratatui::{
     style::{Color, Modifier, Style, Stylize},
     text::{Line, Text},
     widgets::{
-        Block, BorderType, Cell, Clear, Padding, Paragraph, Row, Scrollbar, ScrollbarOrientation,
-        StatefulWidget, Table, Widget,
+        Block, BorderType, Cell, Clear, List, ListItem, Padding, Paragraph, Row, Scrollbar,
+        ScrollbarOrientation, StatefulWidget, Table, Widget,
     },
 };
 
@@ -25,8 +25,8 @@ use crate::{
         ACTION_ENABLE, ACTION_ERASE, ACTION_LOGS, ACTION_MOVE, ACTION_NEW, ACTION_QUIT,
         ACTION_TOGGLE, ACTION_UPDATE, ACTION_VIEW, ACTIVE, ACTIVE_SLIDER, APP_SUBTITLE, APP_TITLE,
         ARROW_DOWN, ARROW_UP, COL_BEIGE, COL_BLUE, COL_BORDER, COL_GRAY, COL_GREEN, COL_LBROWN,
-        COL_ORANGE, COL_PURPLE, COL_TITLE, DAILY, DAY, EMOJI_FILTER, EMOJI_SEARCH, EMOJI_SECTION,
-        EMOJI_STATS, EMOJI_STATUS_FAILED, EMOJI_STATUS_OTHER, EMOJI_STATUS_PARTIAL,
+        COL_MAGENTA, COL_ORANGE, COL_PURPLE, COL_TITLE, DAILY, DAY, EMOJI_FILTER, EMOJI_SEARCH,
+        EMOJI_SECTION, EMOJI_STATS, EMOJI_STATUS_FAILED, EMOJI_STATUS_OTHER, EMOJI_STATUS_PARTIAL,
         EMOJI_STATUS_SUCCESS, FAILED, FILTER, HOUR, INACTIVE, JOURNAL, LOG, PARTIAL, REAL_TIME,
         REPLACE, REPLACE_WITH, SEARCH, SEPARATOR, SHORTCUT_DAILY, SHORTCUT_FILTER,
         SHORTCUT_REAL_TIME, SHORTCUT_SEARCH, SHORTCUT_WEEKLY, SLIDER, SOURCE, SUCCESS, TARGET,
@@ -426,6 +426,7 @@ pub fn form(area: Rect, buf: &mut Buffer, app: &mut App) {
                 app.active_component = Some(Component::from_str(labels[i]));
                 styles[i] = (COL_BLUE, Color::White);
                 components[i].set_cursor_position(*area, buf);
+                app.event = None;
                 break;
             }
         }
@@ -439,6 +440,15 @@ pub fn form(area: Rect, buf: &mut Buffer, app: &mut App) {
         }
     }
 
+    let (is_input_listable, input_label): (bool, &str) =
+        if let Some(comp) = app.active_component.as_ref() {
+            (comp.is_listable(), comp.to_str())
+        } else {
+            (false, "")
+        };
+
+    let mut dropdown_to_render: Option<(Rect, &Vec<String>)> = None;
+
     for ((component, area), (label, (fg, bg))) in components
         .iter()
         .zip(&areas)
@@ -449,6 +459,60 @@ pub fn form(area: Rect, buf: &mut Buffer, app: &mut App) {
         Paragraph::new(component.value.clone())
             .block(field(capitalized_label.as_str(), *fg, *bg))
             .render(*area, buf);
+
+        let should_show_suggestions = is_input_listable
+            && label == &input_label
+            && !component.suggestions.is_empty()
+            && !component.value.is_empty()
+            && app.suggestion_state.active;
+
+        // If active and has suggestions, calculate dropdown position
+        if should_show_suggestions {
+            // Calculate area directly below the input field
+            let dropdown_height = (component.suggestions.len() as u16).min(10) + 2; // Cap at 10 items + borders
+            let dropdown_area = Rect {
+                x: area.x,
+                y: area.y + area.height, // Start immediately below
+                width: area.width,
+                height: dropdown_height,
+            };
+
+            // Ensure dropdown doesn't go off screen bottom
+            let screen_intersection = dropdown_area.intersection(buf.area);
+
+            // Store it to render after the loop
+            dropdown_to_render = Some((screen_intersection, &component.suggestions));
+        }
+
+        // Render the Dropdown Overlay (Z-Index: Top)
+        if let Some((area, suggestions)) = dropdown_to_render {
+            // Clear the background so text underneath doesn't show through
+            Clear.render(area, buf);
+
+            // Convert strings to ListItems
+            let items: Vec<ListItem> = suggestions
+                .iter()
+                .map(|s| ListItem::new(s.as_str()))
+                .collect();
+
+            // Render the List
+            let list = List::new(items)
+                .block(
+                    Block::bordered()
+                        .style(Style::default().fg(COL_GRAY))
+                        .border_type(BorderType::Rounded)
+                        .border_style(COL_MAGENTA),
+                )
+                .highlight_style(Style::default().fg(COL_BEIGE).bold());
+
+            app.suggestion_state.paths = suggestions.clone();
+            app.suggestion_state.len = suggestions.len();
+            if app.suggestion_state.state.selected().is_none() {
+                app.suggestion_state.state.select_first();
+            }
+
+            StatefulWidget::render(list, area, buf, &mut app.suggestion_state.state);
+        }
     }
 }
 
@@ -509,7 +573,7 @@ pub fn modal(area: Rect, buf: &mut Buffer, app: &mut App) {
 
 // Footer ───────────────────────────────────────────────────────
 pub fn footer(area: Rect, buf: &mut Buffer, app: &App) {
-    let mut shortcuts = Vec::with_capacity(9); // Pre-allocate space for expected max number of shortcuts
+    let mut shortcuts = Vec::with_capacity(11); // Pre-allocate space for expected max number of shortcuts
 
     if app.active_modal == Some(Modal::Job) {
         shortcuts.push(ACTION_CLOSE);

@@ -1,5 +1,11 @@
 // Standards ────────────────────────────────────────────────────
-use std::{fmt, str::FromStr};
+use std::{
+    env::var,
+    fmt,
+    fs::read_dir,
+    path::{MAIN_SEPARATOR, Path, PathBuf},
+    str::FromStr,
+};
 
 // mods ─────────────────────────────────────────────────────────
 use crate::consts::{
@@ -13,7 +19,7 @@ use ratatui::{
     buffer::Buffer,
     layout::{Position, Rect},
     style::Color,
-    widgets::{ScrollbarState, TableState},
+    widgets::{ListState, ScrollbarState, TableState},
 };
 
 // Structs & Enums ──────────────────────────────────────────────
@@ -137,6 +143,10 @@ impl Component {
         )
     }
 
+    pub fn is_listable(&self) -> bool {
+        matches!(&self, Component::Source | Component::Target)
+    }
+
     pub fn next(self, freq: Option<Component>) -> Self {
         match (freq, &self) {
             (Some(_), Component::Source) => Component::Target,
@@ -219,6 +229,7 @@ impl SectionState {
 pub struct InputField {
     pub value: String,
     pub index: usize,
+    pub suggestions: Vec<String>,
 }
 
 impl InputField {
@@ -226,6 +237,8 @@ impl InputField {
         let index = self.byte_index();
         self.value.insert(index, new_char);
         self.move_cursor_right();
+
+        self.auto_complete();
     }
 
     pub fn insert_paste(&mut self) {
@@ -234,6 +247,8 @@ impl InputField {
         let pasted_char_count = last_copied.chars().count();
         self.value.insert_str(index, &last_copied);
         self.index += pasted_char_count;
+
+        self.auto_complete();
     }
 
     pub fn delete_prev_word(&mut self) {
@@ -263,6 +278,8 @@ impl InputField {
             // Update the string and cursor index
             self.value = chars.iter().collect();
             self.index = new_index;
+
+            self.auto_complete();
         }
     }
 
@@ -281,6 +298,8 @@ impl InputField {
             // By leaving the selected one out, it is forgotten and therefore deleted.
             self.value = before_char_to_delete.chain(after_char_to_delete).collect();
             self.move_cursor_left();
+
+            self.auto_complete();
         }
     }
 
@@ -298,17 +317,23 @@ impl InputField {
             // Put all characters together except the next one.
             // The character after the cursor is excluded, effectively deleting it.
             self.value = before_char_to_delete.chain(after_char_to_delete).collect();
+
+            self.auto_complete();
         }
     }
 
     pub fn move_cursor_left(&mut self) {
         let moved = self.index.saturating_sub(1);
         self.index = self.clamp_cursor(moved);
+
+        self.auto_complete();
     }
 
     pub fn move_cursor_right(&mut self) {
         let moved = self.index.saturating_add(1);
         self.index = self.clamp_cursor(moved);
+
+        self.auto_complete();
     }
 
     fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
@@ -316,14 +341,22 @@ impl InputField {
     }
 
     pub fn set_cursor_position(&mut self, area: Rect, buf: &mut Buffer) {
-        let cursor_pos = self.byte_index();
-        let cursor_x = area.left() + cursor_pos as u16 + 2;
-        let cursor_y = area.top() + 1;
+        let (cursor_x, cursor_y) = self.get_cursor_position(area);
 
         // Place a cursor at that position
         buf.cell_mut(Position::new(cursor_x, cursor_y))
             .unwrap()
             .set_bg(Color::White);
+
+        self.auto_complete();
+    }
+
+    fn get_cursor_position(&mut self, area: Rect) -> (u16, u16) {
+        let cursor_pos = self.byte_index();
+        let cursor_x = area.left() + cursor_pos as u16 + 2;
+        let cursor_y = area.top() + 1;
+
+        (cursor_x, cursor_y)
     }
 
     pub fn byte_index(&self) -> usize {
@@ -333,4 +366,71 @@ impl InputField {
             .nth(self.index)
             .unwrap_or(self.value.len())
     }
+
+    fn auto_complete(&mut self) {
+        if self.value.is_empty() {
+            self.suggestions = vec![];
+            return;
+        }
+
+        let input = &self.value;
+        let input = if self.value.starts_with('~') {
+            if let Ok(home) = var("HOME") {
+                input.replacen("~", &home, 1)
+            } else {
+                input.clone()
+            }
+        } else {
+            input.clone()
+        };
+
+        // Identify the Operating System's separator ('/' or '\')
+        let sep = MAIN_SEPARATOR;
+
+        // Determine the directory to search and the substring to match
+        let (search_dir, query) = if input.ends_with(sep) {
+            // Case 2: Typed a directory separator (e.g., "/usr/") -> List contents of that dir
+            (std::path::PathBuf::from(input), String::new())
+        } else {
+            // Case 3: Typed partial name (e.g., "/usr/Downl" or "Downl")
+            let path = Path::new(&input);
+            let parent = path.parent();
+            let file_stem = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+
+            // If parent is empty, we search the root "/"
+            let dir = match parent {
+                Some(p) if p.as_os_str().is_empty() => PathBuf::from(format!("{}", sep)),
+                Some(p) => p.to_path_buf(),
+                None => PathBuf::from(format!("{}", sep)),
+            };
+            (dir, file_stem.to_string())
+        };
+
+        let mut suggestions = vec![];
+        let query_lower = query.to_lowercase();
+
+        // Read the directory and filter results
+        if let Ok(entries) = read_dir(search_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                // Get the filename to check if it contains the substring
+                if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
+                    if file_name.to_lowercase().contains(&query_lower) {
+                        suggestions.push(path.to_string_lossy().to_string());
+                    }
+                }
+            }
+        }
+
+        self.suggestions = suggestions;
+    }
+}
+
+// SuggestionState
+#[derive(Debug, Default)]
+pub struct SuggestionState {
+    pub state: ListState,
+    pub paths: Vec<String>,
+    pub len: usize,
+    pub active: bool,
 }

@@ -16,6 +16,20 @@ use crate::{
 impl App {
     // Handle record
     pub fn commit_record(&mut self) {
+        if self.suggestion_state.active {
+            if let Some(selected) = self.suggestion_state.state.selected() {
+                let input = self.suggestion_state.paths[selected].clone();
+                let input_count = input.chars().count();
+
+                if let Some(active_input) = self.get_active_input() {
+                    active_input.value = input;
+                    active_input.index = input_count;
+                }
+            }
+            self.suggestion_state.active = false;
+            return;
+        }
+
         if !self.is_record_valid() {
             return;
         }

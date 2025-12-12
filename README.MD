@@ -120,13 +120,25 @@ You can use mouse clicks & scrolls across the majority of the app componets.
 * **Description**: Specifies the day when the job should run. Use the three-letter abbreviation for the day (e.g., Mon for Monday, Tue for Tuesday...).
 
 
-### **Usage Example:**
+### **Usage Example & Default Behavior**
 
-Let’s say you enter the following paths:
+Suppose you enter the following paths:
 
-* **📂 Source:** `/home/my files/My Pictures` 
-* **📂 Target:** `/my hard drive/PC/Stored Pictures`
+* **📂 Source:** `/home/my files/My Pictures`
+* **📂 Target:** `~/my hard drive/PC/Backed up Pictures`
 
-When the backup runs, the entire `My Pictures` folder (along with all its files and subfolders) from the **Source** folder will be copied to the **Target** location. Specifically, the contents of the `My Pictures` folder will be placed inside the `Stored Pictures` folder located within `/my hard drive/PC`.
+When the backup runs:
 
-If the target directories, namely `my hard drive` or `PC`, don’t already exist, they will be automatically created during the process.
+1. The entire **`My Pictures`** folder, including all files and subfolders, will be copied **as a folder**, not just its contents.
+   The resulting structure will be:
+
+   ```
+   ~/my hard drive/PC/Backed up Pictures/My Pictures/
+   ```
+
+2. If any folder mentioned in the target path does not already exist
+   (e.g., `my hard drive`, `PC`, or `Backed up Pictures`),
+   the application will automatically create it.
+
+3. The `~` symbol is expanded to your home directory, i.e.: it will read as `/home/your_username` by the application.
+

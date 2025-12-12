@@ -48,6 +48,11 @@ impl App {
         }
 
         if self.active_modal == Some(Modal::Job) {
+            if self.suggestion_state.active {
+                self.suggestion_state.active = false;
+                return;
+            }
+
             if let Some(job) = &self.selected_job {
                 self.active_component = Some(Component::from_str(job.frequency.as_str()));
             }

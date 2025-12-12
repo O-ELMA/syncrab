@@ -17,7 +17,7 @@ use ratatui::{
 // mods ──────────────────────────────────────────────────────────
 use super::{
     components::{footer, header, modal, search, section, title},
-    structs::{Component, Filter, InputField, Modal, SectionState},
+    structs::{Component, Filter, InputField, Modal, SectionState, SuggestionState},
 };
 use crate::{
     consts::{DAILY, JOURNAL, LOG, REAL_TIME, WEEKLY},
@@ -41,6 +41,8 @@ pub struct App {
     pub target: InputField,
     pub hour: InputField,
     pub day: InputField,
+
+    pub suggestion_state: SuggestionState,
 
     pub to_replace: InputField,
     pub replace_with: InputField,
