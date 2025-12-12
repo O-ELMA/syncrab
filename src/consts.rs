@@ -18,7 +18,8 @@ pub const SLIDER: &str = "│"; // customisable
 
 // cron ───────────────────────────────────────────────────────
 pub const LOG_PATH: &str = "/home/$USER/syncrab_log.log"; // customisable
-pub const VALID_OPTS: [&str; 4] = [ALL, DAILY, WEEKLY, REAL_TIME];
+pub const VALID_OPTS_1: [&str; 4] = [ALL, DAILY, WEEKLY, REAL_TIME];
+pub const VALID_OPTS_2: [&str; 2] = [ACTIVE, INACTIVE];
 
 // db ─────────────────────────────────────────────────────────
 pub const DB_NAME: &str = "syncrab.db";

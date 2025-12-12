@@ -43,16 +43,15 @@ A Rust **TUI** and **CLI** for automating your backup jobs. Includes two binarie
 
 3. **Run the backup job manually** (whenever you want):
 
-   * `syncrab_b` can be run **without any arguments** or with `all`, `realtime`, `daily`, or `weekly` as an argument:
+   * `syncrab_b` accepts an optional frequency argument (`all`, `realtime`, `daily`, `weekly`), followed by an optional status (`active`, `inactive`):
 
      ```bash
-     syncrab_b            # sync active daily & weekly jobs that match the the current hour and day's criteria
-     syncrab_b all        # sync all jobs (both active and inactive)
-     syncrab_b realtime   # sync all active real-time jobs
-     syncrab_b daily      # sync all active daily jobs
-     syncrab_b weekly     # sync all active weekly jobs
+     syncrab_b                  # sync active daily & weekly jobs that match the current hour and day
+     syncrab_b all              # sync all jobs (active and inactive)
+     syncrab_b realtime         # sync all realtime jobs (active and inactive)
+     syncrab_b daily active     # sync only active daily jobs
+     syncrab_b weekly inactive  # sync only inactive weekly jobs
      ```
-
 4. **Uninstall**:
 
    Run the uninstall script:

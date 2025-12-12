@@ -6,7 +6,7 @@ use rusqlite::Connection;
 
 // mods ──────────────────────────────────────────────────────────
 use crate::{
-    consts::{DAILY, DB_NAME, REAL_TIME, WEEKLY},
+    consts::{ACTIVE, ALL, DAILY, DB_NAME, INACTIVE, REAL_TIME, WEEKLY},
     structs::{Job, Log, LogResult},
 };
 
@@ -121,19 +121,12 @@ pub fn get_all_jobs(conn: &Connection) -> HashMap<&'static str, Vec<Job>> {
 
 pub fn get_jobs_to_run(
     conn: Connection,
-    freq: Option<&str>,
+    args: Option<(String, Option<String>)>,
     day: String,
     hour: u8,
 ) -> HashMap<&'static str, Vec<Job>> {
-    let sql = match freq {
-        Some(freq @ (REAL_TIME | DAILY | WEEKLY)) => {
-            format!(
-                "SELECT * FROM jobs WHERE active = 1 AND frequency = '{freq}';",
-                freq = freq,
-            )
-        }
-        Some("all") => "SELECT * FROM jobs;".to_string(),
-        Some(_) | None => {
+    let sql = match args {
+        None => {
             format!(
                 "SELECT * FROM jobs WHERE active = 1 AND (
                     (frequency = '{daily}' AND hour = {hour}) 
@@ -144,6 +137,31 @@ pub fn get_jobs_to_run(
                 hour = hour,
                 day = day,
             )
+        }
+
+        Some((arg1, arg2)) => {
+            if arg1 == ALL {
+                match arg2.as_deref() {
+                    Some(ACTIVE) => "SELECT * FROM jobs WHERE active = 1;".to_string(),
+                    Some(INACTIVE) => "SELECT * FROM jobs WHERE active = 0;".to_string(),
+                    _ => "SELECT * FROM jobs;".to_string(),
+                }
+            } else {
+                match arg2.as_deref() {
+                    Some(ACTIVE) => format!(
+                        "SELECT * FROM jobs WHERE frequency = '{freq}' AND active = 1;",
+                        freq = arg1
+                    ),
+                    Some(INACTIVE) => format!(
+                        "SELECT * FROM jobs WHERE frequency = '{freq}' AND active = 0;",
+                        freq = arg1
+                    ),
+                    _ => format!(
+                        "SELECT * FROM jobs WHERE frequency = '{freq}';",
+                        freq = arg1
+                    ),
+                }
+            }
         }
     };
 

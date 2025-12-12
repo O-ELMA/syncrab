@@ -6,7 +6,7 @@ use chrono::{DateTime, Datelike, Local, Timelike};
 
 // mods ──────────────────────────────────────────────────────────
 use syncrab::{
-    consts::{ALL, DAILY, REAL_TIME, VALID_OPTS, WEEKLY},
+    consts::{ACTIVE, ALL, DAILY, INACTIVE, REAL_TIME, VALID_OPTS_1, VALID_OPTS_2, WEEKLY},
     db::db::{get_jobs_to_run, init_db},
     structs::{Job, Log, LogResult},
     utils::{are_paths_valid, copy_dir, count_children, log_results, normalise_path},
@@ -17,15 +17,11 @@ fn main() {
     let now: DateTime<Local> = Local::now();
     let log = Log::new();
 
-    let arg = prompt_user();
+    let args = prompt_user();
 
     let conn = init_db();
-    let jobs: HashMap<&'static str, Vec<Job>> = get_jobs_to_run(
-        conn,
-        arg.as_deref(),
-        now.weekday().to_string(),
-        now.hour() as u8,
-    );
+    let jobs: HashMap<&'static str, Vec<Job>> =
+        get_jobs_to_run(conn, args, now.weekday().to_string(), now.hour() as u8);
 
     let mut success_directories: Vec<LogResult> = Vec::new();
     let mut failed_directories: Vec<LogResult> = Vec::new();
@@ -100,29 +96,43 @@ fn main() {
     log_results(log, success_directories, failed_directories);
 }
 
-fn prompt_user() -> Option<String> {
+fn prompt_user() -> Option<(String, Option<String>)> {
     let args: Vec<String> = env::args().skip(1).collect();
 
     match args.len() {
         0 => None,
         1 => {
             let arg = args[0].to_lowercase();
-            if VALID_OPTS.contains(&arg.as_str()) {
-                Some(arg)
+            if [ALL, REAL_TIME, DAILY, WEEKLY].contains(&arg.as_str()) {
+                Some((arg, None))
             } else {
                 eprintln!(
                     "❌ Invalid argument: '{}'. Must be one of: {}, {}, {}, {}",
-                    ALL, REAL_TIME, DAILY, WEEKLY, arg
+                    arg, ALL, REAL_TIME, DAILY, WEEKLY
                 );
-                process::exit(1)
+                process::exit(1);
+            }
+        }
+        2 => {
+            let arg1 = args[0].to_lowercase();
+            let arg2 = args[1].to_lowercase();
+
+            if VALID_OPTS_1.contains(&arg1.as_str()) && VALID_OPTS_2.contains(&arg2.as_str()) {
+                Some((arg1, Some(arg2))) // Two valid arguments
+            } else {
+                eprintln!(
+                    "❌ Invalid arguments: '{} {}'. Usage: syncrab_b [Optional: {}, {}, {} | {}] [Optional: {}, {}]",
+                    arg1, arg2, ALL, REAL_TIME, DAILY, WEEKLY, ACTIVE, INACTIVE
+                );
+                process::exit(1);
             }
         }
         _ => {
             eprintln!(
-                "❌ Too many arguments. Usage: syncrab_b [{},{}|{}|{}]",
-                ALL, REAL_TIME, DAILY, WEEKLY
+                "❌ Too many arguments. Usage: syncrab_b [Optional: {}, {}, {} | {}] [Optional: {}, {}]",
+                ALL, REAL_TIME, DAILY, WEEKLY, ACTIVE, INACTIVE
             );
-            process::exit(1)
+            process::exit(1);
         }
     }
 }
