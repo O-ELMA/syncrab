@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Logging functions ─────────────────────────────────────────────────────────────────────
+log() {
+    echo -e "\033[1;36m💡 [INFO]\033[0m $1"
+}
+success() {
+    echo -e "\033[1;32m✅ [SUCCESS]\033[0m $1"
+}
+line() {
+    echo "────────────────────────────────────────────────────────────────────────"
+}
+
+# Init logic ───────────────────────────────────────────────────────────────────────────
+line
+set -e
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$DIR"
+
+# Updating binaries ────────────────────────────────────────────────────────────────────
+log "Updating syncrab (the TUI)..."
+cargo install --path . --bin syncrab --force
+line
+
+log "Updating syncrab_b (the backup batch performer)..."
+cargo install --path . --bin syncrab_b --force
+line
+
+log "Updating syncrab_w (the real-time files synchroniser)..."
+cargo install --path . --bin syncrab_w --force
+line
+
+# Restarting watcher via Systemd ───────────────────────────────────────────────────────
+log "Restarting the files synchroniser via Systemd..."
+
+SERVICE_FILE="$HOME/.config/systemd/user/syncrab_w.service"
+
+if [ -f "$SERVICE_FILE" ]; then
+    systemctl --user daemon-reexec
+    systemctl --user daemon-reload
+    systemctl --user restart syncrab_w.service
+    log "Systemd service restarted."
+else
+    log "Systemd service not found. Run install first to create it."
+fi
+
+line
+
+success "Update complete."

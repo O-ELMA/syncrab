@@ -22,7 +22,7 @@ use notify::{
 
 // mods ──────────────────────────────────────────────────────────
 use syncrab::{
-    consts::{FAILED, REAL_TIME},
+    consts::{ACTIVE, FAILED, REAL_TIME},
     db::db::{db_path, get_jobs_to_run, init_db, insert_log, insert_log_resuts},
     structs::{Job, Log, LogResult, WatchedJob},
     utils::{are_paths_valid, copy_dir, fallback_log, log_results, normalise_path},
@@ -52,7 +52,8 @@ fn main() {
         return;
     }
 
-    let active_watchers: Arc<Mutex<HashMap<u16, WatchedJob>>> = Arc::new(Mutex::new(HashMap::new()));
+    let active_watchers: Arc<Mutex<HashMap<u16, WatchedJob>>> =
+        Arc::new(Mutex::new(HashMap::new()));
 
     handle_db_event(None, Arc::clone(&active_watchers));
 
@@ -76,7 +77,7 @@ fn handle_db_event(event: Option<Event>, active_watchers: Arc<Mutex<HashMap<u16,
     let conn = init_db();
     let jobs: Vec<Job> = get_jobs_to_run(
         conn,
-        Some(REAL_TIME),
+        Some((REAL_TIME.to_owned(), Some(ACTIVE.to_owned()))),
         now.weekday().to_string(),
         now.hour() as u8,
     )
@@ -220,7 +221,7 @@ fn sync_file_event(event: &Event, job: &Job) {
             // Sync into target (create/update/move in)
             Create(File) | Create(Folder) | Modify(Data(Any)) | Modify(Name(To)) => {
                 // Copy or overwrite from path to dest_path
-                match copy_dir(&path, &dest_path) {
+                match copy_dir(&path, &dest_path, 1, &mut (1 as usize)) {
                     Ok(_) => success_directories.push(LogResult::new(
                         REAL_TIME.into(),
                         "OK".into(),

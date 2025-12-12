@@ -10,7 +10,7 @@ A Rust **TUI** and **CLI** for automating your backup jobs. Includes two binarie
 
 ---
 
-## **Pre-Requisites** 🔧
+## **🔧 Pre-Requisites**
 
 1. **Rust**: Install `rustup` to compile and run. [(more on Rust)](https://www.rust-lang.org/tools/install).
 2. **SQLite**: Install `sqlite` to store backup jobs & logs. [(more on SQLite)](https://sqlite.org/).
@@ -27,13 +27,18 @@ A Rust **TUI** and **CLI** for automating your backup jobs. Includes two binarie
 
 ---
 
-## **How to Use** 🚀
+## **🚀 How to Use**
 
 1. **Install**:
 
    ```bash
    git clone https://github.com/O-ELMA/syncrab.git && cd syncrab && bash ./install
    ```
+   or update:
+   ```bash
+   git clone https://github.com/O-ELMA/syncrab.git && cd syncrab && bash ./update
+   ```
+
 
 2. **Run the TUI**:
 
@@ -62,7 +67,7 @@ A Rust **TUI** and **CLI** for automating your backup jobs. Includes two binarie
 
 ---
 
-## **Keymaps** 🗝️
+## **🗝️ Keymaps**
 
 You can use mouse clicks & scrolls across the majority of the app componets.
 
@@ -96,7 +101,7 @@ You can use mouse clicks & scrolls across the majority of the app componets.
 
 ---
 
-## **Inputs** 📝
+## **📝 Inputs**
 
 ### **Source**
 
@@ -118,8 +123,9 @@ You can use mouse clicks & scrolls across the majority of the app componets.
 * **Type**: 3 characters (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
 * **Description**: Specifies the day when the job should run. Use the three-letter abbreviation for the day (e.g., Mon for Monday, Tue for Tuesday...).
 
+---
 
-### **Usage Example & Default Behavior**
+## **🎮 Usage Example & Default Behavior**
 
 Suppose you enter the following paths:
 
