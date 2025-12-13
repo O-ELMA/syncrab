@@ -159,6 +159,8 @@ impl App {
                 }
                 Err(e) => println!("{e}"), //TODO: add popup for the error
             }
+
+            self.selected_job = None;
         }
     }
 
