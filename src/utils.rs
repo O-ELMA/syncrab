@@ -1,9 +1,10 @@
 // Standards ─────────────────────────────────────────────────────
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     env,
+    ffi::OsString,
     fs::metadata,
-    fs::{OpenOptions, copy, create_dir_all, read_dir},
+    fs::{OpenOptions, copy, create_dir_all, read_dir, remove_dir_all, remove_file},
     io::Write,
     path::{Path, PathBuf},
     process::Command,
@@ -174,6 +175,7 @@ pub fn normalise_path(path: &str) -> PathBuf {
 pub fn copy_dir(
     source: &PathBuf,
     target: &PathBuf,
+    is_destructive: bool,
     total: usize,
     count: &mut usize,
 ) -> Result<(), String> {
@@ -189,40 +191,7 @@ pub fn copy_dir(
             })?;
         }
 
-        // Check if we should copy
-        let should_copy = match metadata(&target) {
-            Ok(dest_metadata) => {
-                let source_metadata = metadata(source).map_err(|e| {
-                    format!(
-                        "Could not get metadata of the source [{}] because [{}]",
-                        source.display(),
-                        e
-                    )
-                })?;
-
-                let source_modif_time = source_metadata.modified().map_err(|e| {
-                    format!(
-                        "Could not get modified time for source [{}] because [{}]",
-                        source.display(),
-                        e
-                    )
-                })?;
-
-                let dest_modif_time = dest_metadata.modified().map_err(|e| {
-                    format!(
-                        "Could not get modified time for destination [{}] because [{}]",
-                        target.display(),
-                        e
-                    )
-                })?;
-
-                (source_modif_time > dest_modif_time)
-                    || (source_metadata.len() != dest_metadata.len())
-            }
-            Err(_) => true,
-        };
-
-        if should_copy {
+        if should_copy(source, target)? {
             copy(source, &target).map_err(|e| {
                 format!(
                     "Failed to copy file [{}] to [{}] because [{}]",
@@ -243,23 +212,58 @@ pub fn copy_dir(
             )
         })?;
 
-        for entry in read_dir(source).map_err(|e| {
-            format!(
-                "Could not read directory [{}] because {}",
-                source.display(),
-                e
-            )
-        })? {
-            let entry = entry.map_err(|e| {
+        let source_entries: Vec<_> = read_dir(source)
+            .map_err(|e| {
+                format!(
+                    "Could not read directory [{}] because {}",
+                    source.display(),
+                    e
+                )
+            })?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| {
                 format!(
                     "Failed to read source entry in [{}] because [{}]",
                     source.display(),
                     e
                 )
             })?;
+
+        if is_destructive {
+            let source_filenames: HashSet<OsString> = source_entries
+                .iter()
+                .map(|entry| entry.file_name())
+                .collect();
+
+            if let Ok(target_itr) = read_dir(target) {
+                for entry in target_itr {
+                    if let Ok(entry) = entry {
+                        // If the target file/dir does NOT exist in source, delete it
+                        if !source_filenames.contains(&entry.file_name()) {
+                            let path = entry.path();
+                            let result = if path.is_dir() {
+                                remove_dir_all(&path)
+                            } else {
+                                remove_file(&path)
+                            };
+
+                            if let Err(e) = result {
+                                return Err(format!(
+                                    "Failed to delete orphan file [{}] because {}",
+                                    path.display(),
+                                    e
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for entry in source_entries {
             let path = entry.path();
             let new_target = target.join(entry.file_name());
-            copy_dir(&path, &new_target, total, count)?;
+            copy_dir(&path, &new_target, is_destructive, total, count)?;
         }
     } else {
         return Err(format!(
@@ -269,6 +273,39 @@ pub fn copy_dir(
     }
 
     Ok(())
+}
+
+fn should_copy(source: &PathBuf, target: &PathBuf) -> Result<bool, String> {
+    match metadata(target) {
+        Ok(dest_metadata) => {
+            let source_metadata = metadata(source).map_err(|e| {
+                format!(
+                    "Could not get metadata of the source [{}] because [{}]",
+                    source.display(),
+                    e
+                )
+            })?;
+
+            let source_modif_time = source_metadata.modified().map_err(|e| {
+                format!(
+                    "Could not get modified time for source [{}] because [{}]",
+                    source.display(),
+                    e
+                )
+            })?;
+
+            let dest_modif_time = dest_metadata.modified().map_err(|e| {
+                format!(
+                    "Could not get modified time for destination [{}] because [{}]",
+                    target.display(),
+                    e
+                )
+            })?;
+
+            Ok(source_modif_time > dest_modif_time || source_metadata.len() != dest_metadata.len())
+        }
+        Err(_) => Ok(true), // If destination doesn't exist, copy
+    }
 }
 
 pub fn count_children(path: &PathBuf) -> usize {

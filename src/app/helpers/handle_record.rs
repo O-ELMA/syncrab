@@ -1,3 +1,6 @@
+// Standards ─────────────────────────────────────────────────────
+use std::collections::HashSet;
+
 // Crates ────────────────────────────────────────────────────────
 use color_eyre::Result;
 
@@ -10,7 +13,7 @@ use crate::{
     consts::{DAILY, REAL_TIME, WEEK_DAYS, WEEKLY},
     db::db::{delete, insert, mass_replace, mass_update, update},
     structs::{Job, Log},
-    utils::capitalise,
+    utils::{capitalise, get_active_jobs},
 };
 
 impl App {
@@ -165,21 +168,43 @@ impl App {
     }
 
     pub fn mass_toggle(&mut self, section: &str, active: u8) {
-        match mass_update(section, active) {
+        let jobs = match self.jobs.get(section) {
+            Some(j) => j,
+            None => return,
+        };
+
+        let found_jobs = get_active_jobs(&self.search.value.to_lowercase(), &self.filter, jobs);
+        if found_jobs.is_empty() {
+            return;
+        }
+
+        let ids_to_update: Vec<u16> = found_jobs.iter().filter_map(|j| j.id).collect();
+        let ids_set: HashSet<u16> = ids_to_update.iter().cloned().collect();
+
+        match mass_update(active, &ids_to_update) {
             Ok(_) => {
-                let stat = self.stats.get_mut(section).unwrap();
-                let jobs = self.jobs.get_mut(section).unwrap();
+                if let Some(jobs) = self.jobs.get_mut(section) {
+                    let mut new_active_count: u16 = 0;
+                    let mut new_inactive_count: u16 = 0;
 
-                for iter_job in jobs.iter_mut() {
-                    iter_job.active = active;
-                }
+                    for job in jobs.iter_mut() {
+                        if let Some(id) = job.id {
+                            if ids_set.contains(&id) {
+                                job.active = active;
+                            }
+                        }
 
-                if active == 1 {
-                    stat.active_count = jobs.len() as u16;
-                    stat.inactive_count = 0;
-                } else {
-                    stat.inactive_count = jobs.len() as u16;
-                    stat.active_count = 0;
+                        if job.active == 1 {
+                            new_active_count += 1;
+                        } else {
+                            new_inactive_count += 1;
+                        }
+                    }
+
+                    if let Some(stat) = self.stats.get_mut(section) {
+                        stat.active_count = new_active_count;
+                        stat.inactive_count = new_inactive_count;
+                    }
                 }
             }
             Err(e) => println!("{e}"), //TODO: add popup for the error
@@ -245,24 +270,41 @@ impl App {
             return;
         }
 
-        let mut jobs_to_update_map = self.jobs.clone();
-        let mut jobs_to_update: Vec<&mut Job> = jobs_to_update_map
-            .values_mut()
-            .flat_map(|jobs| jobs.iter_mut())
-            .collect();
+        let mut ids: HashSet<u16> = HashSet::new();
+        let mut jobs_to_update: Vec<&mut Job> = Vec::new();
+        for job_list in self.jobs.values_mut() {
+            let found_jobs =
+                get_active_jobs(&self.search.value.to_lowercase(), &self.filter, job_list);
+            if found_jobs.is_empty() {
+                continue;
+            }
 
-        for job in &mut jobs_to_update {
-            if job.source.contains(to_replace) {
-                job.source = job.source.replace(to_replace, replace_with);
+            ids.clear();
+
+            for job in found_jobs {
+                ids.insert(job.id.unwrap());
             }
-            if job.target.contains(to_replace) {
-                job.target = job.target.replace(to_replace, replace_with);
+
+            for job in job_list.iter_mut() {
+                if ids.contains(&job.id.unwrap()) {
+                    if job.source.contains(to_replace) {
+                        job.source = job.source.replace(to_replace, replace_with);
+                    }
+                    if job.target.contains(to_replace) {
+                        job.target = job.target.replace(to_replace, replace_with);
+                    }
+
+                    jobs_to_update.push(job);
+                }
             }
+        }
+
+        if jobs_to_update.is_empty() {
+            return;
         }
 
         match mass_replace(jobs_to_update) {
             Ok(_) => {
-                self.jobs = jobs_to_update_map;
                 self.reset_values();
             }
             Err(e) => println!("{e}"), //TODO: add popup for the error

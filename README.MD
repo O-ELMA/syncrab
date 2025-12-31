@@ -82,8 +82,8 @@ You can use mouse clicks & scrolls across the majority of the app componets.
 - `Del`: Delete selected job
 - `Ctrl+C`: Clone selected job
 - `Space`: Toggle backup job activation
-- `Alt+Space`: Disable all backup jobs in table
-- `Ctrl+Space`: Enable all backup jobs in table
+- `Alt+Space`: Disable backup jobs that are visible to you on the table
+- `Ctrl+Space`: Enable backup jobs that are visible to you on the table
 
 ### **General Keymaps:**
 - `f`: Next job filter
@@ -93,7 +93,7 @@ You can use mouse clicks & scrolls across the majority of the app componets.
 - `w`: Jump to weekly table
 - `q`: Quit app
 - `Tab`: Toggle between logs/jobs menus
-- `Ctrl+r`: Replace a text accross all Jobs' Source & Target fields
+- `Ctrl+r`: Replace a text accross the Jobs' Source & Target fields, applies only to the jobs that are visible to you on the table
 
 ---
 
@@ -141,7 +141,10 @@ Suppose you enter the following paths:
    (e.g., `my hard drive`, `PC`, or `Backed up Pictures`),
    the application will automatically create it.
 
-3. The `~` symbol is expanded to your home directory, meaning the target path effectively becomes: 
+3. The copying process mirorrs destructively the source folder to the target folder. 
+   When the backup runs a second time, if a file exists in the source folder `My Pictures` was deleted, it will be deleted in the target folder `My Pictures` too. 
+
+4. The `~` symbol is expanded to your home directory, meaning the target path effectively becomes: 
 
    ```
    /home/your_username/my hard drive/PC/Backed up Pictures
@@ -163,7 +166,7 @@ Suppose you enter the following paths:
 
    (Notice that the **`My Pictures`** folder was not copied in this mode.)
 
-3. The watcher only mirrors new changes in the folder, such as added, modified, or deleted files and subfolders, rather than recopying everything. This means any files or folders that were already inside **`My Pictures`** before you added it to real-time backups will not be copied.
+3. The watcher only mirrors NEW changes in the folder, such as added, modified, or deleted files and subfolders, rather than recopying everything. This means any files or folders that were already inside **`My Pictures`** before you added it to real-time backups will not be copied.
 
 ---
 

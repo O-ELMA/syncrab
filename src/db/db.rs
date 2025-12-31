@@ -292,15 +292,44 @@ pub fn delete(id: u16) -> Result<usize, String> {
     }
 }
 
-pub fn mass_update(section: &str, active: u8) -> Result<usize, String> {
-    let conn: Connection = db_connect();
-    match conn.execute(
-        "UPDATE jobs SET active = ?1 WHERE frequency = ?2",
-        (active, section),
-    ) {
-        Ok(res) => Ok(res),
-        Err(e) => Err(format!("Failed to update job records because [{}].", e)),
+pub fn mass_update(active: u8, ids: &[u16]) -> Result<usize, String> {
+    let mut conn: Connection = db_connect();
+    let transaction = conn.transaction().map_err(|e| {
+        format!(
+            "❌ Failed to initiate a transaction to update jobs because [{}]",
+            e
+        )
+    })?;
+
+    // Scoping stmt to avoid borrowing issue at the transaction
+    {
+        let mut stmt = transaction
+            .prepare("UPDATE jobs SET active = ?1 WHERE id = ?2")
+            .map_err(|e| {
+                format!(
+                    "❌ Failed to prepare statement to update jobs because [{}]",
+                    e
+                )
+            })?;
+
+        for id in ids {
+            stmt.execute((active, id)).map_err(|e| {
+                format!(
+                    "❌ Failed to execute the statement for job [{}] because [{}]",
+                    id, e
+                )
+            })?;
+        }
     }
+
+    transaction.commit().map_err(|e| {
+        format!(
+            "❌ Failed to commit the statement to update jobs because [{}]",
+            e
+        )
+    })?;
+
+    Ok(1)
 }
 
 pub fn mass_replace(jobs: Vec<&mut Job>) -> Result<usize, String> {

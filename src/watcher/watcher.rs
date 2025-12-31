@@ -221,7 +221,7 @@ fn sync_file_event(event: &Event, job: &Job) {
             // Sync into target (create/update/move in)
             Create(File) | Create(Folder) | Modify(Data(Any)) | Modify(Name(To)) => {
                 // Copy or overwrite from path to dest_path
-                match copy_dir(&path, &dest_path, 1, &mut (1 as usize)) {
+                match copy_dir(&path, &dest_path, false, 1, &mut (1 as usize)) {
                     Ok(_) => success_directories.push(LogResult::new(
                         REAL_TIME.into(),
                         "OK".into(),

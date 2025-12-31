@@ -69,7 +69,7 @@ fn main() {
 
             let children_count = count_children(&source);
 
-            match copy_dir(&source, &dest_path, children_count, &mut 0) {
+            match copy_dir(&source, &dest_path, true, children_count, &mut 0) {
                 Ok(_) => success_directories.push(LogResult::new(
                     frequency,
                     "OK".into(),
