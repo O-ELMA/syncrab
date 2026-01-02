@@ -20,6 +20,7 @@ pub struct Job {
     pub frequency: String,
     pub hour: u8,
     pub day: Option<String>,
+    pub mirror: u8,
     pub active: u8,
 }
 
@@ -32,6 +33,7 @@ impl Job {
             hour: Default::default(),
             source: Default::default(),
             target: Default::default(),
+            mirror: 1,
             active: 0,
         }
     }
@@ -49,6 +51,11 @@ impl Job {
                 self.id.unwrap().to_string(),
                 self.source.clone(),
                 self.target.clone(),
+                if self.mirror == 1 {
+                    EMOJI_ACTIVE.to_string()
+                } else {
+                    EMOJI_INACTIVE.to_string()
+                },
                 if self.active == 1 {
                     EMOJI_ACTIVE.to_string()
                 } else {
@@ -60,6 +67,11 @@ impl Job {
                 self.source.clone(),
                 self.target.clone(),
                 formatted_hour,
+                if self.mirror == 1 {
+                    EMOJI_ACTIVE.to_string()
+                } else {
+                    EMOJI_INACTIVE.to_string()
+                },
                 if self.active == 1 {
                     EMOJI_ACTIVE.to_string()
                 } else {
@@ -80,6 +92,11 @@ impl Job {
                     self.target.clone(),
                     formatted_hour,
                     formatted_day,
+                    if self.mirror == 1 {
+                        EMOJI_ACTIVE.to_string()
+                    } else {
+                        EMOJI_INACTIVE.to_string()
+                    },
                     if self.active == 1 {
                         EMOJI_ACTIVE.to_string()
                     } else {

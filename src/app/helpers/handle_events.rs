@@ -84,18 +84,24 @@ impl App {
                 }
                 (KeyModifiers::CONTROL, Char(' ')) => {
                     if let Some(job) = self.get_active_job(idx).cloned() {
-                        self.mass_toggle(job.frequency.as_str(), ACTIVATE);
+                        self.mass_active(job.frequency.as_str(), ACTIVATE);
                     }
                 }
                 (KeyModifiers::ALT, Char(' ')) => {
                     if let Some(job) = self.get_active_job(idx).cloned() {
-                        self.mass_toggle(job.frequency.as_str(), DEACTIVATE);
+                        self.mass_active(job.frequency.as_str(), DEACTIVATE);
                     }
                 }
                 (_, Char(' ')) => {
                     if let Some(job) = self.get_active_job(idx).cloned() {
                         self.set_selected_job(job);
-                        self.toggle_record();
+                        self.toggle_active();
+                    }
+                }
+                (_, Char('m')) => {
+                    if let Some(job) = self.get_active_job(idx).cloned() {
+                        self.set_selected_job(job);
+                        self.toggle_mirror();
                     }
                 }
                 (KeyModifiers::CONTROL, Char('r')) => {

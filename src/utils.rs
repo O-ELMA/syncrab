@@ -81,13 +81,15 @@ pub fn get_columns_info_by_key(
                 Constraint::Length(3),
                 Constraint::Ratio(1, 2),
                 Constraint::Ratio(1, 2),
-                Constraint::Length(12),
-                Constraint::Length(12),
+                Constraint::Length(8),
+                Constraint::Length(8),
+                Constraint::Length(8),
             ],
             &[
                 Alignment::Center,
                 Alignment::Left,
                 Alignment::Left,
+                Alignment::Center,
                 Alignment::Center,
                 Alignment::Center,
             ],
@@ -98,14 +100,16 @@ pub fn get_columns_info_by_key(
                 Constraint::Length(3),
                 Constraint::Ratio(1, 2),
                 Constraint::Ratio(1, 2),
-                Constraint::Length(12),
-                Constraint::Length(12),
-                Constraint::Length(12),
+                Constraint::Length(8),
+                Constraint::Length(8),
+                Constraint::Length(8),
+                Constraint::Length(8),
             ],
             &[
                 Alignment::Center,
                 Alignment::Left,
                 Alignment::Left,
+                Alignment::Center,
                 Alignment::Center,
                 Alignment::Center,
                 Alignment::Center,
@@ -175,7 +179,7 @@ pub fn normalise_path(path: &str) -> PathBuf {
 pub fn copy_dir(
     source: &PathBuf,
     target: &PathBuf,
-    is_destructive: bool,
+    mirror: u8,
     total: usize,
     count: &mut usize,
 ) -> Result<(), String> {
@@ -229,7 +233,7 @@ pub fn copy_dir(
                 )
             })?;
 
-        if is_destructive {
+        if mirror == 1 {
             let source_filenames: HashSet<OsString> = source_entries
                 .iter()
                 .map(|entry| entry.file_name())
@@ -263,7 +267,7 @@ pub fn copy_dir(
         for entry in source_entries {
             let path = entry.path();
             let new_target = target.join(entry.file_name());
-            copy_dir(&path, &new_target, is_destructive, total, count)?;
+            copy_dir(&path, &new_target, mirror, total, count)?;
         }
     } else {
         return Err(format!(

@@ -78,12 +78,13 @@ You can use mouse clicks & scrolls across the majority of the app componets.
 ### **Table Keymaps:**
 - `Up/Down (or mouse scroll)`: Scroll through jobs
 - `Enter`: Open a job or log record
-- `N`: Open new empty job form
+- `N`: Create new job
 - `Del`: Delete selected job
 - `Ctrl+C`: Clone selected job
+- `M`: Toggle backup job mirroring (Explained in the Bheavior section below)
 - `Space`: Toggle backup job activation
-- `Alt+Space`: Disable backup jobs that are visible to you on the table
-- `Ctrl+Space`: Enable backup jobs that are visible to you on the table
+- `Alt+Space`: Disable visible backup jobs
+- `Ctrl+Space`: Enable visible backup jobs
 
 ### **General Keymaps:**
 - `f`: Next job filter
@@ -93,7 +94,7 @@ You can use mouse clicks & scrolls across the majority of the app componets.
 - `w`: Jump to weekly table
 - `q`: Quit app
 - `Tab`: Toggle between logs/jobs menus
-- `Ctrl+r`: Replace a text accross the Jobs' Source & Target fields, applies only to the jobs that are visible to you on the table
+- `Ctrl+r`: Replace text in visible jobs' source/target fields
 
 ---
 
@@ -102,12 +103,12 @@ You can use mouse clicks & scrolls across the majority of the app componets.
 ### **Source**
 
 * **Type**: Text
-* **Description**: The path of the file or folder that you want to copy somewhere else.
+* **Description**: The absolute/complete path of the file/folder that you want to copy somewhere else.
 
 ### **Target**
 
 * **Type**: Text
-* **Description**: The path of the destination folder where the source file/folder will be copied to.
+* **Description**: The absolute/complete path of the destination folder where the source file/folder will be copied to.
 
 ### **Hour**
 
@@ -128,33 +129,29 @@ Suppose you enter the following paths:
 * **📂 Source:** `/home/my files/My Pictures`
 * **📂 Target:** `~/my hard drive/PC/Backed up Pictures`
 
-### I. either as **daily** or **weekly** backups:
+### I. as a **Daily** or **Weekly** backup:
 
-1. When the backup job runs, the entire **`My Pictures`** folder will be copied **as a folder**, including all files and subfolders.
+1. When the job runs, the **`My Pictures`** folder is copied **as a folder**, including all files and subfolders to the target folder.
    The resulting structure will be:
 
    ```
-   ~/my hard drive/PC/Backed up Pictures/My Pictures/
+   ~/my hard drive/PC/Backed up Pictures/My Pictures
    ```
 
-2. If any folder in the target path does not already exist
-   (e.g., `my hard drive`, `PC`, or `Backed up Pictures`),
-   the application will automatically create it.
+2. Non-existent folders (e.g., `my_hard_drive`, `PC`, `Backed_up_Pictures`) are automatically created if not already created.
 
-3. The copying process mirorrs destructively the source folder to the target folder. 
-   When the backup runs a second time, if a file exists in the source folder `My Pictures` was deleted, it will be deleted in the target folder `My Pictures` too. 
+3.1. If the `Mirror` field is set to ✅: the copying process mirorrs **destructively** the source folder to the target folder. 
+     New/modified files are added in the target.
+     If a file is deleted in the source, it’s deleted in the target on the next backup.
 
-4. The `~` symbol is expanded to your home directory, meaning the target path effectively becomes: 
+3.2. If the `Mirror` field is set to ❌: the copying process will copy **additively** the source folder to the target folder.
+      New/modified files are added without deleting any files in the target.
 
-   ```
-   /home/your_username/my hard drive/PC/Backed up Pictures
-   ```
+### II. as a **Real-time** backup:
 
-### II. as a **real-time** backup:
+1. A watcher monitors **`My Pictures`** folder, its files and subfolders, and mirrors new/modified/deleted files to the target.
 
-1. A watcher is placed on the contents of the **`My Pictures`** folder, its files and subfolders.
-
-   - In real-time mode, the **`My Pictures`** folder itself is not copied into the target.
+   - The **`My Pictures`** folder itself is not copied into the target.
 
    - Only the items inside **`My Pictures`** are mirrored (added, updated, or deleted) in the target folder.
 
@@ -167,6 +164,14 @@ Suppose you enter the following paths:
    (Notice that the **`My Pictures`** folder was not copied in this mode.)
 
 3. The watcher only mirrors NEW changes in the folder, such as added, modified, or deleted files and subfolders, rather than recopying everything. This means any files or folders that were already inside **`My Pictures`** before you added it to real-time backups will not be copied.
+
+### III. Path auto-completion:
+
+When creating/updaing a backup job, path auto-completion is set to help you.
+
+Currently, the only expandable symbol is the `~`. It exapands automatically to your absolute home path: `/home/username/`
+
+Variable resolution will be added in the future.
 
 ---
 

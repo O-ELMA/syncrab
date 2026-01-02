@@ -42,6 +42,7 @@ pub fn init_db() -> Connection {
             day         TEXT,
             source      TEXT NOT NULL,
             target      TEXT NOT NULL,
+            mirror      INTEGER DEFAULT 1,
             active      INTEGER DEFAULT 0
         )",
         [],
@@ -97,6 +98,7 @@ fn get_jobs(conn: &Connection, sql: &str) -> HashMap<&'static str, Vec<Job>> {
                 hour: row.get("hour")?,
                 source: row.get("source")?,
                 target: row.get("target")?,
+                mirror: row.get("mirror")?,
                 active: row.get("active")?,
             })
         })
@@ -241,12 +243,13 @@ pub fn get_log_results(conn: &Connection) -> Vec<LogResult> {
 pub fn insert(job: &Job) -> Result<usize, String> {
     let conn: Connection = db_connect();
     match conn.execute(
-        "INSERT INTO jobs (source, target, day, hour, active, frequency) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO jobs (source, target, day, hour, mirror, active, frequency) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         (
             &job.source,
             &job.target,
             &job.day.as_ref(),
             &job.hour.clone(),
+            &job.mirror,
             &job.active,
             &job.frequency,
         ),
@@ -262,12 +265,13 @@ pub fn insert(job: &Job) -> Result<usize, String> {
 pub fn update(job: &Job) -> Result<usize, String> {
     let conn: Connection = db_connect();
     match conn.execute(
-        "UPDATE jobs SET source = ?1, target = ?2, day = ?3, hour = ?4, active = ?5, frequency = ?6 WHERE id = ?7",
+        "UPDATE jobs SET source = ?1, target = ?2, day = ?3, hour = ?4, mirror = ?5, active = ?6, frequency = ?7 WHERE id = ?8",
         (
             &job.source,
             &job.target,
             &job.day.as_ref(),
             &job.hour.clone(),
+            &job.mirror,
             &job.active,
             &job.frequency,
             &job.id,
@@ -292,7 +296,7 @@ pub fn delete(id: u16) -> Result<usize, String> {
     }
 }
 
-pub fn mass_update(active: u8, ids: &[u16]) -> Result<usize, String> {
+pub fn mass_update(ids: &[u16], update_field: &str, toggle_value: u8) -> Result<usize, String> {
     let mut conn: Connection = db_connect();
     let transaction = conn.transaction().map_err(|e| {
         format!(
@@ -303,17 +307,17 @@ pub fn mass_update(active: u8, ids: &[u16]) -> Result<usize, String> {
 
     // Scoping stmt to avoid borrowing issue at the transaction
     {
-        let mut stmt = transaction
-            .prepare("UPDATE jobs SET active = ?1 WHERE id = ?2")
-            .map_err(|e| {
-                format!(
-                    "❌ Failed to prepare statement to update jobs because [{}]",
-                    e
-                )
-            })?;
+        let query = format!("UPDATE jobs SET {} = ? WHERE id = ?", update_field);
+
+        let mut stmt = transaction.prepare(&query).map_err(|e| {
+            format!(
+                "❌ Failed to prepare statement to update jobs because [{}]",
+                e
+            )
+        })?;
 
         for id in ids {
-            stmt.execute((active, id)).map_err(|e| {
+            stmt.execute((toggle_value, id)).map_err(|e| {
                 format!(
                     "❌ Failed to execute the statement for job [{}] because [{}]",
                     id, e

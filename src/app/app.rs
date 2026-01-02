@@ -126,11 +126,11 @@ impl Widget for &mut App {
         Self: Sized,
     {
         let vertical_layout = Layout::vertical([
-            Constraint::Length(3),
+            Constraint::Length(2),
             Constraint::Length(5),
             Constraint::Length(3),
             Constraint::Fill(1),
-            Constraint::Length(1),
+            Constraint::Length(3),
         ]);
         let [
             title_area,

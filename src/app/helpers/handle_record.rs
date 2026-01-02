@@ -134,7 +134,7 @@ impl App {
         }
     }
 
-    pub fn toggle_record(&mut self) {
+    pub fn toggle_active(&mut self) {
         if let Some(job) = &mut self.selected_job {
             job.active ^= 1;
 
@@ -167,7 +167,7 @@ impl App {
         }
     }
 
-    pub fn mass_toggle(&mut self, section: &str, active: u8) {
+    pub fn mass_active(&mut self, section: &str, active: u8) {
         let jobs = match self.jobs.get(section) {
             Some(j) => j,
             None => return,
@@ -181,7 +181,7 @@ impl App {
         let ids_to_update: Vec<u16> = found_jobs.iter().filter_map(|j| j.id).collect();
         let ids_set: HashSet<u16> = ids_to_update.iter().cloned().collect();
 
-        match mass_update(active, &ids_to_update) {
+        match mass_update(&ids_to_update, "active", active) {
             Ok(_) => {
                 if let Some(jobs) = self.jobs.get_mut(section) {
                     let mut new_active_count: u16 = 0;
@@ -211,14 +211,38 @@ impl App {
         }
     }
 
+    pub fn toggle_mirror(&mut self) {
+        if let Some(job) = &mut self.selected_job {
+            job.mirror ^= 1;
+
+            let freq = job.frequency.as_str();
+
+            match update(job) {
+                Ok(_) => {
+                    let jobs = self.jobs.get_mut(freq).unwrap();
+
+                    if let Some(iter_job) = jobs
+                        .iter_mut()
+                        .find(|iter_job| iter_job.id == Some(job.id.unwrap()))
+                    {
+                        *iter_job = job.clone();
+                    }
+                }
+                Err(e) => println!("{e}"), //TODO: add popup for the error
+            }
+
+            self.selected_job = None;
+        }
+    }
+
     fn is_record_valid(&self) -> bool {
         let source = self.source.value.as_str();
         let target = self.target.value.as_str();
         let hour = self.hour.value.as_str();
         let day = self.day.value.to_lowercase();
 
-        // Check if essential fields are non-empty
-        if source.is_empty() || target.is_empty() {
+        // Check if essential fields are empty or the same
+        if source.is_empty() || target.is_empty() || source == target {
             return false;
         }
 

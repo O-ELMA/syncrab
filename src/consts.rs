@@ -45,7 +45,8 @@ pub const ACTION_NEW: &str = "🆕 [n] New";
 pub const ACTION_MOVE: &str = "🧭 [↑↓] Move";
 pub const ACTION_ERASE: &str = "🗑️ [Ctrl+W] Delete Word";
 pub const ACTION_DELETE: &str = "🗑️ [Del] Delete";
-pub const ACTION_TOGGLE: &str = "⏯️ [Space] Toggle";
+pub const ACTION_MIRROR: &str = "🪞 [m] Toggle Mirror";
+pub const ACTION_ACTIVE: &str = "⏯️ [Space] Toggle Active";
 pub const ACTION_DISABLE: &str = "🛑 [Alt+Space] Disable All";
 pub const ACTION_ENABLE: &str = "✅ [Ctrl+Space] Enable All";
 pub const ACTION_CLONE: &str = "📄📄 [Ctrl+C] Clone";
@@ -106,8 +107,8 @@ pub const ACTIVE: &str = "active";
 pub const INACTIVE: &str = "inactive";
 
 pub const REAL_TIME_COLS: &[&str; 4] = &["Id", "Source", "Target", "Active"];
-pub const DAILY_COLS: &[&str; 5] = &["Id", "Source", "Target", "Hour", "Active"];
-pub const WEEKLY_COLS: &[&str; 6] = &["Id", "Source", "Target", "Hour", "Day", "Active"];
+pub const DAILY_COLS: &[&str; 6] = &["Id", "Source", "Target", "Hour", "Mirror", "Active"];
+pub const WEEKLY_COLS: &[&str; 7] = &["Id", "Source", "Target", "Hour", "Day", "Mirror", "Active"];
 pub const JOURNAL_COLS: &[&str; 6] = &[
     "Id",
     "Started at",

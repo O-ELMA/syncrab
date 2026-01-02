@@ -21,16 +21,16 @@ use super::{
 };
 use crate::{
     consts::{
-        ACTION_BACKUP, ACTION_CLONE, ACTION_CLOSE, ACTION_DELETE, ACTION_DISABLE, ACTION_EDIT,
-        ACTION_ENABLE, ACTION_ERASE, ACTION_LOGS, ACTION_MOVE, ACTION_NEW, ACTION_QUIT,
-        ACTION_TOGGLE, ACTION_UPDATE, ACTION_VIEW, ACTIVE, ACTIVE_SLIDER, APP_SUBTITLE, APP_TITLE,
-        ARROW_DOWN, ARROW_UP, COL_BEIGE, COL_BLUE, COL_BORDER, COL_GRAY, COL_GREEN, COL_LBROWN,
-        COL_MAGENTA, COL_ORANGE, COL_PURPLE, COL_TITLE, DAILY, DAY, EMOJI_FILTER, EMOJI_SEARCH,
-        EMOJI_SECTION, EMOJI_STATS, EMOJI_STATUS_FAILED, EMOJI_STATUS_OTHER, EMOJI_STATUS_PARTIAL,
-        EMOJI_STATUS_SUCCESS, FAILED, FILTER, HOUR, INACTIVE, JOURNAL, LOG, PARTIAL, REAL_TIME,
-        REPLACE, REPLACE_WITH, SEARCH, SEPARATOR, SHORTCUT_DAILY, SHORTCUT_FILTER,
-        SHORTCUT_REAL_TIME, SHORTCUT_SEARCH, SHORTCUT_WEEKLY, SLIDER, SOURCE, SUCCESS, TARGET,
-        TO_REPLACE, WEEKLY,
+        ACTION_ACTIVE, ACTION_BACKUP, ACTION_CLONE, ACTION_CLOSE, ACTION_DELETE, ACTION_DISABLE,
+        ACTION_EDIT, ACTION_ENABLE, ACTION_ERASE, ACTION_LOGS, ACTION_MIRROR, ACTION_MOVE,
+        ACTION_NEW, ACTION_QUIT, ACTION_UPDATE, ACTION_VIEW, ACTIVE, ACTIVE_SLIDER, APP_SUBTITLE,
+        APP_TITLE, ARROW_DOWN, ARROW_UP, COL_BEIGE, COL_BLUE, COL_BORDER, COL_GRAY, COL_GREEN,
+        COL_LBROWN, COL_MAGENTA, COL_ORANGE, COL_PURPLE, COL_TITLE, DAILY, DAY, EMOJI_FILTER,
+        EMOJI_SEARCH, EMOJI_SECTION, EMOJI_STATS, EMOJI_STATUS_FAILED, EMOJI_STATUS_OTHER,
+        EMOJI_STATUS_PARTIAL, EMOJI_STATUS_SUCCESS, FAILED, FILTER, HOUR, INACTIVE, JOURNAL, LOG,
+        PARTIAL, REAL_TIME, REPLACE, REPLACE_WITH, SEARCH, SEPARATOR, SHORTCUT_DAILY,
+        SHORTCUT_FILTER, SHORTCUT_REAL_TIME, SHORTCUT_SEARCH, SHORTCUT_WEEKLY, SLIDER, SOURCE,
+        SUCCESS, TARGET, TO_REPLACE, WEEKLY,
     },
     structs::Stat,
     utils::{
@@ -573,7 +573,7 @@ pub fn modal(area: Rect, buf: &mut Buffer, app: &mut App) {
 
 // Footer ───────────────────────────────────────────────────────
 pub fn footer(area: Rect, buf: &mut Buffer, app: &App) {
-    let mut shortcuts = Vec::with_capacity(11); // Pre-allocate space for expected max number of shortcuts
+    let mut shortcuts = Vec::with_capacity(12); // Pre-allocate space for expected max number of shortcuts
 
     if app.active_modal == Some(Modal::Job) {
         shortcuts.push(ACTION_CLOSE);
@@ -611,7 +611,8 @@ pub fn footer(area: Rect, buf: &mut Buffer, app: &App) {
                 shortcuts.push(ACTION_MOVE);
                 shortcuts.push(ACTION_DELETE);
                 shortcuts.push(ACTION_EDIT);
-                shortcuts.push(ACTION_TOGGLE);
+                shortcuts.push(ACTION_MIRROR);
+                shortcuts.push(ACTION_ACTIVE);
                 shortcuts.push(ACTION_CLONE);
 
                 if count > 1 {
@@ -627,7 +628,14 @@ pub fn footer(area: Rect, buf: &mut Buffer, app: &App) {
     }
 
     // Join shortcuts into a string and render them
-    Paragraph::new(shortcuts.join(SEPARATOR))
-        .alignment(Alignment::Center)
-        .render(area, buf);
+    Paragraph::new(
+        shortcuts
+            .chunks(5)
+            .map(|chunk| chunk.join(SEPARATOR))
+            .collect::<Vec<String>>()
+            .join("\n"),
+    )
+    .alignment(Alignment::Center)
+    //.wrap(Wrap { trim: true })
+    .render(area, buf);
 }
