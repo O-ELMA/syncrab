@@ -20,7 +20,8 @@ fn main() -> Result<()> {
 
     color_eyre::install()?;
     let mut terminal = tui::init()?;
-    let result = App::default().run(&mut terminal, jobs, logs, stats);
+    let mut app = App::new(db);
+    let result = app.run(&mut terminal, jobs, logs, stats);
     if let Err(err) = tui::restore() {
         eprintln!(
             "failed to restore terminal. Run `reset` or restart your terminal to recover: {err}"

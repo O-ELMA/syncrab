@@ -51,8 +51,8 @@ impl App {
             let freq = job.frequency.as_str();
             let job_id = job.id;
             let res = match job_id {
-                Some(_) => update(job),
-                None => insert(job),
+                Some(_) => update(&mut self.db, job),
+                None => insert(&mut self.db, job),
             };
 
             match res {
@@ -113,7 +113,7 @@ impl App {
     pub fn delete_record(&mut self, job: Job) {
         //TODO: popup to confirm delete
 
-        match delete(job.id.unwrap()) {
+        match delete(&mut self.db, job.id.unwrap()) {
             Ok(_) => {
                 let freq = job.frequency.as_str();
 
@@ -140,7 +140,7 @@ impl App {
 
             let freq = job.frequency.as_str();
 
-            match update(job) {
+            match update(&mut self.db, job) {
                 Ok(_) => {
                     let stat = self.stats.get_mut(freq).unwrap();
                     let jobs = self.jobs.get_mut(freq).unwrap();
@@ -181,7 +181,7 @@ impl App {
         let ids_to_update: Vec<u16> = found_jobs.iter().filter_map(|j| j.id).collect();
         let ids_set: HashSet<u16> = ids_to_update.iter().cloned().collect();
 
-        match mass_update(&ids_to_update, "active", active) {
+        match mass_update(&mut self.db, &ids_to_update, "active", active) {
             Ok(_) => {
                 if let Some(jobs) = self.jobs.get_mut(section) {
                     let mut new_active_count: u16 = 0;
@@ -217,7 +217,7 @@ impl App {
 
             let freq = job.frequency.as_str();
 
-            match update(job) {
+            match update(&mut self.db, job) {
                 Ok(_) => {
                     let jobs = self.jobs.get_mut(freq).unwrap();
 
@@ -327,7 +327,7 @@ impl App {
             return;
         }
 
-        match mass_replace(jobs_to_update) {
+        match mass_replace(&mut self.db, jobs_to_update) {
             Ok(_) => {
                 self.reset_values();
             }

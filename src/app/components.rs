@@ -599,7 +599,7 @@ pub fn footer(area: Rect, buf: &mut Buffer, app: &App) {
             let count: u16 = match app.filter {
                 Filter::All => stat.count,
                 Filter::Active => stat.active_count,
-                Filter::Inactive => stat.active_count,
+                Filter::Inactive => stat.inactive_count,
             };
 
             // Base shortcuts for non-field components

@@ -74,9 +74,9 @@ fn handle_db_event(event: Option<Event>, active_watchers: Arc<Mutex<HashMap<u16,
 
     let now: DateTime<Local> = Local::now();
 
-    let conn = init_db();
+    let mut conn = init_db();
     let jobs: Vec<Job> = get_jobs_to_run(
-        conn,
+        &conn,
         Some((REAL_TIME.to_owned(), Some(ACTIVE.to_owned()))),
         now.weekday().to_string(),
         now.hour() as u8,
@@ -167,10 +167,11 @@ fn handle_db_event(event: Option<Event>, active_watchers: Arc<Mutex<HashMap<u16,
         );
 
         // Spawn a thread for this job watcher
+        let job_clone = job.clone();
         std::thread::spawn(move || {
             for res in job_rx {
                 match res {
-                    Ok(event) => sync_file_event(&event, &job),
+                    Ok(event) => sync_file_event(&event, &job_clone),
                     Err(e) => eprintln!("Job watch error: {}\n\n", e),
                 }
             }
@@ -190,9 +191,10 @@ fn handle_db_event(event: Option<Event>, active_watchers: Arc<Mutex<HashMap<u16,
         endstamp: Local::now().format("%d-%m-%Y %H:%M").to_string(),
         log_results: None,
     };
-    match insert_log(log.clone()) {
+    match insert_log(&mut conn, log.clone()) {
         Ok(id) => {
-            if let Err(error) = insert_log_resuts(id as u16, failed_directories.clone()) {
+            if let Err(error) = insert_log_resuts(&mut conn, id as u16, failed_directories.clone())
+            {
                 fallback_log(&log, &failed_directories, &error);
             }
         }
@@ -275,5 +277,6 @@ fn sync_file_event(event: &Event, job: &Job) {
         }
     }
 
-    log_results(log, success_directories, failed_directories);
+    let mut conn = init_db();
+    log_results(&mut conn, log, success_directories, failed_directories);
 }

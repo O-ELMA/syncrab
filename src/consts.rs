@@ -17,7 +17,7 @@ pub const ACTIVE_SLIDER: &str = "┃"; // customisable
 pub const SLIDER: &str = "│"; // customisable
 
 // cron ───────────────────────────────────────────────────────
-pub const LOG_PATH: &str = "/home/$USER/syncrab_log.log"; // customisable
+pub const LOG_PATH: &str = "$HOME/syncrab.log"; // customisable
 pub const VALID_OPTS_1: [&str; 4] = [ALL, DAILY, WEEKLY, REAL_TIME];
 pub const VALID_OPTS_2: [&str; 2] = [ACTIVE, INACTIVE];
 

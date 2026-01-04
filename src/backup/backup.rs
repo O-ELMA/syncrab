@@ -19,9 +19,9 @@ fn main() {
 
     let args = prompt_user();
 
-    let conn = init_db();
+    let mut conn = init_db();
     let jobs: HashMap<&'static str, Vec<Job>> =
-        get_jobs_to_run(conn, args, now.weekday().to_string(), now.hour() as u8);
+        get_jobs_to_run(&conn, args, now.weekday().to_string(), now.hour() as u8);
 
     let mut success_directories: Vec<LogResult> = Vec::new();
     let mut failed_directories: Vec<LogResult> = Vec::new();
@@ -93,7 +93,7 @@ fn main() {
         println!("✅ Backups completed successfully!");
     }
 
-    log_results(log, success_directories, failed_directories);
+    log_results(&mut conn, log, success_directories, failed_directories);
 }
 
 fn prompt_user() -> Option<(String, Option<String>)> {

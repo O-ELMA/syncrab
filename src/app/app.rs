@@ -2,6 +2,7 @@
 use std::{collections::HashMap, io::stdout};
 
 // Crates ────────────────────────────────────────────────────────
+use rusqlite::Connection;
 use color_eyre::{Result, eyre::WrapErr};
 use crossterm::{
     event::{self, EnableMouseCapture, Event, KeyEventKind, MouseEvent},
@@ -25,10 +26,11 @@ use crate::{
 };
 
 // App ───────────────────────────────────────────────────────────
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct App {
     pub exit: bool,
 
+    pub db: Connection,
     pub jobs: HashMap<&'static str, Vec<Job>>,
     pub stats: HashMap<&'static str, Stat>,
     pub logs: Vec<Log>,
@@ -60,6 +62,33 @@ pub struct App {
 }
 
 impl App {
+    pub fn new(db: Connection) -> Self {
+        Self {
+            exit: false,
+            db,
+            jobs: HashMap::new(),
+            stats: HashMap::new(),
+            logs: Vec::new(),
+            search: InputField::default(),
+            filter: Filter::default(),
+            filter_clicked: false,
+            source: InputField::default(),
+            target: InputField::default(),
+            hour: InputField::default(),
+            day: InputField::default(),
+            suggestion_state: SuggestionState::default(),
+            to_replace: InputField::default(),
+            replace_with: InputField::default(),
+            active_modal: None,
+            active_component: None,
+            states: HashMap::new(),
+            event: None,
+            show_journal: false,
+            selected_job: None,
+            selected_log: None,
+        }
+    }
+
     // Init
     pub fn run(
         &mut self,

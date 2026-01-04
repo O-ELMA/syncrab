@@ -11,6 +11,7 @@ use std::{
 };
 
 // Crates ────────────────────────────────────────────────────────
+use rusqlite::Connection;
 use chrono::Local;
 use ratatui::{
     layout::{Alignment, Constraint},
@@ -348,7 +349,12 @@ fn draw_progress_bar(current: &usize, total: &usize) {
     std::io::stdout().flush().unwrap();
 }
 pub fn fallback_log(log: &Log, results: &Vec<LogResult>, error: &str) {
-    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(LOG_PATH) {
+    let log_path = if let Ok(home) = env::var("HOME") {
+        LOG_PATH.replace("$HOME", &home)
+    } else {
+        "/tmp/syncrab_log.log".to_string()
+    };
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(log_path) {
         let _ = writeln!(file, "=== Cron job failed at {} ===", log.endstamp);
         let _ = writeln!(file, "Status: {}", log.status);
         let _ = writeln!(file, "Success count: {}", log.success_count);
@@ -420,6 +426,7 @@ pub fn are_paths_valid(
 }
 
 pub fn log_results(
+    conn: &mut Connection,
     mut log: Log,
     success_directories: Vec<LogResult>,
     failed_directories: Vec<LogResult>,
@@ -454,9 +461,9 @@ pub fn log_results(
 
     log.endstamp = Local::now().format("%d-%m-%Y %H:%M").to_string();
 
-    match insert_log(log.clone()) {
+    match insert_log(conn, log.clone()) {
         Ok(id) => {
-            if let Err(error) = insert_log_resuts(id as u16, all_results.clone()) {
+            if let Err(error) = insert_log_resuts(conn, id as u16, all_results.clone()) {
                 fallback_log(&log, &all_results, &error);
             }
         }

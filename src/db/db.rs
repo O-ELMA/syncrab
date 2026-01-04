@@ -122,7 +122,7 @@ pub fn get_all_jobs(conn: &Connection) -> HashMap<&'static str, Vec<Job>> {
 }
 
 pub fn get_jobs_to_run(
-    conn: Connection,
+    conn: &Connection,
     args: Option<(String, Option<String>)>,
     day: String,
     hour: u8,
@@ -240,8 +240,7 @@ pub fn get_log_results(conn: &Connection) -> Vec<LogResult> {
         .collect()
 }
 
-pub fn insert(job: &Job) -> Result<usize, String> {
-    let conn: Connection = db_connect();
+pub fn insert(conn: &mut Connection, job: &Job) -> Result<usize, String> {
     match conn.execute(
         "INSERT INTO jobs (source, target, day, hour, mirror, active, frequency) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         (
@@ -262,8 +261,7 @@ pub fn insert(job: &Job) -> Result<usize, String> {
     }
 }
 
-pub fn update(job: &Job) -> Result<usize, String> {
-    let conn: Connection = db_connect();
+pub fn update(conn: &mut Connection, job: &Job) -> Result<usize, String> {
     match conn.execute(
         "UPDATE jobs SET source = ?1, target = ?2, day = ?3, hour = ?4, mirror = ?5, active = ?6, frequency = ?7 WHERE id = ?8",
         (
@@ -285,8 +283,7 @@ pub fn update(job: &Job) -> Result<usize, String> {
     }
 }
 
-pub fn delete(id: u16) -> Result<usize, String> {
-    let conn: Connection = db_connect();
+pub fn delete(conn: &mut Connection, id: u16) -> Result<usize, String> {
     match conn.execute("DELETE FROM jobs WHERE id = ?1", (&id,)) {
         Ok(res) => Ok(res),
         Err(e) => Err(format!(
@@ -296,8 +293,12 @@ pub fn delete(id: u16) -> Result<usize, String> {
     }
 }
 
-pub fn mass_update(ids: &[u16], update_field: &str, toggle_value: u8) -> Result<usize, String> {
-    let mut conn: Connection = db_connect();
+pub fn mass_update(
+    conn: &mut Connection,
+    ids: &[u16],
+    update_field: &str,
+    toggle_value: u8,
+) -> Result<usize, String> {
     let transaction = conn.transaction().map_err(|e| {
         format!(
             "❌ Failed to initiate a transaction to update jobs because [{}]",
@@ -336,8 +337,7 @@ pub fn mass_update(ids: &[u16], update_field: &str, toggle_value: u8) -> Result<
     Ok(1)
 }
 
-pub fn mass_replace(jobs: Vec<&mut Job>) -> Result<usize, String> {
-    let mut conn: Connection = db_connect();
+pub fn mass_replace(conn: &mut Connection, jobs: Vec<&mut Job>) -> Result<usize, String> {
     let transaction = conn.transaction().map_err(|e| {
         format!(
             "❌ Failed to initiate a transaction to update jobs because [{}]",
@@ -377,8 +377,7 @@ pub fn mass_replace(jobs: Vec<&mut Job>) -> Result<usize, String> {
     Ok(1)
 }
 
-pub fn insert_log(log: Log) -> Result<usize, String> {
-    let conn: Connection = db_connect();
+pub fn insert_log(conn: &mut Connection, log: Log) -> Result<usize, String> {
     match conn.execute(
         "INSERT INTO logs (startstamp, endstamp, status, success_count, failed_count) VALUES (?1, ?2, ?3, ?4, ?5)",
         (
@@ -397,8 +396,11 @@ pub fn insert_log(log: Log) -> Result<usize, String> {
     }
 }
 
-pub fn insert_log_resuts(log_id: u16, log_results: Vec<LogResult>) -> Result<usize, String> {
-    let mut conn: Connection = db_connect();
+pub fn insert_log_resuts(
+    conn: &mut Connection,
+    log_id: u16,
+    log_results: Vec<LogResult>,
+) -> Result<usize, String> {
     let transaction = conn.transaction()
         .map_err(|e| format!(
             "❌ Failed to initiate a transaction to insert log_results for log_id [{}] because [{}]", log_id, e
