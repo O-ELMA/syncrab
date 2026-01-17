@@ -154,7 +154,7 @@ pub fn get_columns_info_by_key(
     }
 }
 
-pub fn field(title: &str, title_style: Color, border_style: Color) -> Block {
+pub fn field(title: &str, title_style: Color, border_style: Color) -> Block<'_> {
     Block::bordered()
         .title(title)
         .padding(Padding::new(1, 1, 0, 0))
