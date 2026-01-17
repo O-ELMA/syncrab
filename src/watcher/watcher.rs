@@ -139,9 +139,9 @@ fn handle_db_event(event: Option<Event>, active_watchers: Arc<Mutex<HashMap<u16,
                 Err(e) => {
                     failed_directories.push(LogResult::new(
                         REAL_TIME.into(),
-                        format!("Failed to create file watcher because [{}]", e),
-                        job.source.clone(),
-                        job.target.clone(),
+                        &format!("Failed to create file watcher because [{}]", e),
+                        &job.source,
+                        &job.target,
                     ));
                     continue;
                 }
@@ -150,9 +150,9 @@ fn handle_db_event(event: Option<Event>, active_watchers: Arc<Mutex<HashMap<u16,
         if let Err(e) = job_watcher.watch(source.as_path(), RecursiveMode::Recursive) {
             failed_directories.push(LogResult::new(
                 REAL_TIME.into(),
-                format!("Failed to create file watcher because [{}]", e),
-                job.source.clone(),
-                job.target.clone(),
+                &format!("Failed to create file watcher because [{}]", e),
+                &job.source,
+                &job.target,
             ));
             continue;
         }
@@ -193,8 +193,7 @@ fn handle_db_event(event: Option<Event>, active_watchers: Arc<Mutex<HashMap<u16,
     };
     match insert_log(&mut conn, log.clone()) {
         Ok(id) => {
-            if let Err(error) = insert_log_resuts(&mut conn, id as u16, failed_directories.clone())
-            {
+            if let Err(error) = insert_log_resuts(&mut conn, id as u16, &failed_directories) {
                 fallback_log(&log, &failed_directories, &error);
             }
         }
@@ -214,28 +213,27 @@ fn sync_file_event(event: &Event, job: &Job) {
     let mut success_directories: Vec<LogResult> = Vec::new();
     let mut failed_directories: Vec<LogResult> = Vec::new();
 
+    // Clone once before loop to avoid repeated cloning
+    let frequency = REAL_TIME;
+    let source = job.source.to_string();
+    let target = job.target.to_string();
+
     for path in &event.paths {
-        let files_names = path.to_str().unwrap().replace(&job.source, "");
+        let files_names = path.to_str().unwrap().replace(&source, "");
         let files_names = files_names.strip_prefix('/').unwrap_or(&files_names);
-        let dest_path = Path::new(&job.target).join(files_names);
+        let dest_path = Path::new(&target).join(files_names);
 
         match event.kind {
             // Sync into target (create/update/move in)
             Create(File) | Create(Folder) | Modify(Data(Any)) | Modify(Name(To)) => {
                 // Copy or overwrite from path to dest_path
                 match copy_dir(&path, &dest_path, 0, 1, &mut (1 as usize)) {
-                    Ok(_) => success_directories.push(LogResult::new(
-                        REAL_TIME.into(),
-                        "OK".into(),
-                        job.source.clone(),
-                        job.target.clone(),
-                    )),
-                    Err(error) => failed_directories.push(LogResult::new(
-                        REAL_TIME.into(),
-                        error,
-                        job.source.clone(),
-                        job.target.clone(),
-                    )),
+                    Ok(_) => {
+                        success_directories.push(LogResult::new(frequency, "OK", &source, &target))
+                    }
+                    Err(error) => {
+                        failed_directories.push(LogResult::new(frequency, &error, &source, &target))
+                    }
                 };
             }
             // Delete from target (delete/move out)
@@ -243,32 +241,24 @@ fn sync_file_event(event: &Event, job: &Job) {
                 // Delete dest_path
                 if dest_path.is_dir() {
                     match remove_dir_all(dest_path) {
-                        Ok(_) => success_directories.push(LogResult::new(
-                            REAL_TIME.into(),
-                            "OK".into(),
-                            job.source.clone(),
-                            job.target.clone(),
-                        )),
+                        Ok(_) => success_directories
+                            .push(LogResult::new(frequency, "OK", &source, &target)),
                         Err(error) => failed_directories.push(LogResult::new(
-                            REAL_TIME.into(),
-                            error.to_string(),
-                            job.source.clone(),
-                            job.target.clone(),
+                            frequency,
+                            &error.to_string(),
+                            &source,
+                            &target,
                         )),
                     };
                 } else if dest_path.is_file() {
                     match remove_file(dest_path) {
-                        Ok(_) => success_directories.push(LogResult::new(
-                            REAL_TIME.into(),
-                            "OK".into(),
-                            job.source.clone(),
-                            job.target.clone(),
-                        )),
+                        Ok(_) => success_directories
+                            .push(LogResult::new(frequency, "OK", &source, &target)),
                         Err(error) => failed_directories.push(LogResult::new(
-                            REAL_TIME.into(),
-                            error.to_string(),
-                            job.source.clone(),
-                            job.target.clone(),
+                            frequency,
+                            &error.to_string(),
+                            &source,
+                            &target,
                         )),
                     };
                 }

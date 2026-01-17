@@ -68,12 +68,12 @@ fn card(area: Rect, buf: &mut Buffer, stat: &Stat) {
     let vertical_layout = Layout::vertical(vec![Constraint::Fill(1); 3]);
     let [top, middle, bottom] = vertical_layout.areas(block.inner(area));
 
-    Text::from(format!("{} {}", EMOJI_STATS, stat.name.clone()))
+    Text::from(format!("{} {}", EMOJI_STATS, stat.name))
         .add_modifier(Modifier::BOLD)
         .fg(COL_TITLE)
         .render(top, buf);
 
-    Text::from(stat.count.clone().to_string())
+    Text::from(stat.count.to_string())
         .add_modifier(Modifier::BOLD)
         .fg(COL_BEIGE)
         .render(middle, buf);
@@ -81,11 +81,11 @@ fn card(area: Rect, buf: &mut Buffer, stat: &Stat) {
     let horizontal_layout = Layout::horizontal(vec![Constraint::Fill(1); 2]);
     let [left, right] = horizontal_layout.areas(bottom);
 
-    Text::from(format!("{} {}", stat.active_count.clone(), ACTIVE))
+    Text::from(format!("{} {}", stat.active_count, ACTIVE))
         .fg(COL_GREEN)
         .render(left, buf);
 
-    Text::from(format!("{} {}", stat.inactive_count.clone(), INACTIVE))
+    Text::from(format!("{} {}", stat.inactive_count, INACTIVE))
         .fg(COL_GRAY)
         .render(right, buf);
 }
@@ -256,7 +256,7 @@ pub fn table(area: Rect, buf: &mut Buffer, freq: &str, app: &mut App) {
                             .into_iter()
                             .enumerate()
                             .map(|(i, field)| {
-                                let (lines, content) = into_lines(field);
+                                let (lines, content) = into_lines(&field);
                                 if lines > highest_line {
                                     highest_line = lines;
                                 }

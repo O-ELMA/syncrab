@@ -44,7 +44,11 @@ where
     }
 }
 
-fn execute_transaction<F>(conn: &mut Connection, operation_name: &str, func: F) -> Result<(), String>
+fn execute_transaction<F>(
+    conn: &mut Connection,
+    operation_name: &str,
+    func: F,
+) -> Result<(), String>
 where
     F: FnOnce(&Transaction) -> Result<(), rusqlite::Error>,
 {
@@ -78,7 +82,7 @@ pub fn db_path() -> PathBuf {
     let exe_dir = exe_path
         .parent()
         .expect("❌ Executable must be in some directory");
-    
+
     if exe_dir.ends_with("debug") || exe_dir.ends_with("release") {
         let cwd = env::current_dir().expect("❌ Failed to get current working directory");
         cwd.join(DB_NAME)
@@ -366,7 +370,7 @@ pub fn insert_log(conn: &mut Connection, log: Log) -> Result<usize, String> {
 pub fn insert_log_resuts(
     conn: &mut Connection,
     log_id: u16,
-    log_results: Vec<LogResult>,
+    log_results: &[LogResult],
 ) -> Result<usize, String> {
     execute_transaction(
         conn,

@@ -68,7 +68,7 @@ impl App {
                 }
                 (_, Char(SHORTCUT_NEW)) => {
                     if let Some(comp) = self.active_component.as_ref() {
-                        let job = Job::new(comp.to_string());
+                        let job = Job::new(comp.to_str());
                         self.open_job_form(job)?;
                     }
                 }

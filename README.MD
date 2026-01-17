@@ -225,4 +225,4 @@ Variable resolution will be added in the future.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE.txt).
+This project is licensed under the [MIT License](LICENSE).

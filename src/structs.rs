@@ -1,5 +1,8 @@
 // Standards ─────────────────────────────────────────────────────
-use std::sync::mpsc::Sender;
+use std::{
+    sync::mpsc::Sender,
+    borrow::Cow,
+};
 
 // Crates ───────────────────────────────────────────────────────
 use chrono::Local;
@@ -9,7 +12,7 @@ use serde::{Deserialize, Serialize};
 // mods ─────────────────────────────────────────────────────────
 use crate::{
     consts::{DAILY, REAL_TIME, WEEKLY},
-    utils::status_emoji
+    utils::status_emoji,
 };
 
 // Structs & Enums ──────────────────────────────────────────────
@@ -28,59 +31,59 @@ pub struct Job {
 }
 
 impl Job {
-    pub fn new(freq: String) -> Self {
+    pub fn new(frequency: &str) -> Self {
         Self {
             id: None,
-            frequency: freq,
-            day: Default::default(),
-            hour: Default::default(),
-            source: Default::default(),
-            target: Default::default(),
-            mirror: 1,
+            source: String::new(),
+            target: String::new(),
+            frequency: frequency.to_string(),
+            hour: 0,
+            day: None,
+            mirror: 0,
             active: 0,
         }
     }
 
-    pub fn get_fields_data(&self) -> Vec<String> {
-        let hour = self.hour.clone().to_string();
+    pub fn get_fields_data(&self) -> Vec<Cow<'_, str>> {
+        let hour = self.hour.to_string();
         let formatted_hour = if hour.len() == 1 {
-            format!("0{}", hour)
+            Cow::Owned(format!("0{}", hour))
         } else {
-            hour
+            Cow::Owned(hour)
         };
 
         match self.frequency.as_str() {
             REAL_TIME => vec![
-                self.id.unwrap().to_string(),
-                self.source.clone(),
-                self.target.clone(),
-                status_emoji(self.mirror),
-                status_emoji(self.active),
+                Cow::Owned(self.id.unwrap().to_string()),
+                Cow::Borrowed(&self.source),
+                Cow::Borrowed(&self.target),
+                Cow::Owned(status_emoji(self.mirror)),
+                Cow::Owned(status_emoji(self.active)),
             ],
             DAILY => vec![
-                self.id.unwrap().to_string(),
-                self.source.clone(),
-                self.target.clone(),
+                Cow::Owned(self.id.unwrap().to_string()),
+                Cow::Borrowed(&self.source),
+                Cow::Borrowed(&self.target),
                 formatted_hour,
-                status_emoji(self.mirror),
-                status_emoji(self.active),
+                Cow::Owned(status_emoji(self.mirror)),
+                Cow::Owned(status_emoji(self.active)),
             ],
             WEEKLY => {
-                let day = self.day.clone().unwrap_or_default();
+                let day = self.day.as_deref().unwrap_or_default();
                 let formatted_day = if day.len() == 1 {
-                    format!("0{}", day)
+                    Cow::Owned(format!("0{}", day))
                 } else {
-                    day
+                    Cow::Borrowed(day)
                 };
 
                 vec![
-                    self.id.unwrap().to_string(),
-                    self.source.clone(),
-                    self.target.clone(),
+                    Cow::Owned(self.id.unwrap().to_string()),
+                    Cow::Borrowed(&self.source),
+                    Cow::Borrowed(&self.target),
                     formatted_hour,
                     formatted_day,
-                    status_emoji(self.mirror),
-                    status_emoji(self.active),
+                    Cow::Owned(status_emoji(self.mirror)),
+                    Cow::Owned(status_emoji(self.active)),
                 ]
             }
             _ => panic!(
@@ -141,7 +144,7 @@ impl Log {
             self.id.unwrap().to_string(),
             self.startstamp.to_string(),
             self.endstamp.to_string(),
-            self.status.clone(),
+            self.status.to_string(),
             self.success_count.to_string(),
             self.failed_count.to_string(),
         ]
@@ -159,22 +162,22 @@ pub struct LogResult {
 }
 
 impl LogResult {
-    pub fn new(frequency: String, message: String, source: String, target: String) -> Self {
+    pub fn new(frequency: &str, message: &str, source: &str, target: &str) -> Self {
         Self {
             log_id: None,
-            frequency,
-            message,
-            source,
-            target,
+            frequency: frequency.to_string(),
+            message: message.to_string(),
+            source: source.to_string(),
+            target: target.to_string(),
         }
     }
 
-    pub fn get_fields_data(&self) -> Vec<String> {
+    pub fn get_fields_data(&self) -> Vec<Cow<'_, str>> {
         vec![
-            self.frequency.clone(),
-            self.source.clone(),
-            self.target.clone(),
-            self.message.clone(),
+            Cow::Borrowed(&self.frequency),
+            Cow::Borrowed(&self.source),
+            Cow::Borrowed(&self.target),
+            Cow::Borrowed(&self.message),
         ]
     }
 }

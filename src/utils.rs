@@ -386,18 +386,18 @@ pub fn are_paths_valid(
 ) -> bool {
     if source.exists() && !source.is_absolute() {
         failed_directories.push(LogResult::new(
-            freq_str.into(),
-            "Source path must be absolute".into(),
-            job.source.clone(),
-            job.target.clone(),
+            freq_str,
+            "Source path must be absolute",
+            &job.source,
+            &job.target,
         ));
         return false;
     } else if !source.exists() {
         failed_directories.push(LogResult::new(
-            freq_str.into(),
-            "Source path does not exist".into(),
-            job.source.clone(),
-            job.target.clone(),
+            freq_str,
+            "Source path does not exist",
+            &job.source,
+            &job.target,
         ));
         return false;
     }
@@ -405,18 +405,18 @@ pub fn are_paths_valid(
     if target.exists() {
         if !target.is_absolute() {
             failed_directories.push(LogResult::new(
-                freq_str.into(),
-                "Target path must be absolute".into(),
-                job.source.clone(),
-                job.target.clone(),
+                freq_str,
+                "Target path must be absolute",
+                &job.source,
+                &job.target,
             ));
             return false;
         } else if target.is_file() {
             failed_directories.push(LogResult::new(
-                freq_str.into(),
-                "Target path must be a directory".into(),
-                job.source.clone(),
-                job.target.clone(),
+                freq_str,
+                "Target path must be a directory",
+                &job.source,
+                &job.target,
             ));
             return false;
         }
@@ -463,7 +463,7 @@ pub fn log_results(
 
     match insert_log(conn, log.clone()) {
         Ok(id) => {
-            if let Err(error) = insert_log_resuts(conn, id as u16, all_results.clone()) {
+            if let Err(error) = insert_log_resuts(conn, id as u16, &all_results) {
                 fallback_log(&log, &all_results, &error);
             }
         }
@@ -474,10 +474,10 @@ pub fn log_results(
 }
 
 // Dissect content into lines of 5 words max or 32 characters max
-pub fn into_lines(content: String) -> (u16, String) {
+pub fn into_lines(content: &str) -> (u16, String) {
     let words: Vec<&str> = content.split_whitespace().collect();
     if words.len() == 1 {
-        return (1, content);
+        return (1, content.to_string());
     }
 
     let mut lines = Vec::new();

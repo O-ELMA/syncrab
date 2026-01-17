@@ -58,10 +58,10 @@ fn main() {
                 Some(name) => target.join(name),
                 None => {
                     failed_directories.push(LogResult::new(
-                        frequency,
-                        format!("Source path [{}] has no file name", source.display()),
-                        job.source.clone(),
-                        job.target.clone(),
+                        &frequency,
+                        &format!("Source path [{}] has no file name", source.display()),
+                        &job.source,
+                        &job.target,
                     ));
                     continue;
                 }
@@ -71,16 +71,16 @@ fn main() {
 
             match copy_dir(&source, &dest_path, job.mirror, children_count, &mut 0) {
                 Ok(_) => success_directories.push(LogResult::new(
-                    frequency,
-                    "OK".into(),
-                    job.source.clone(),
-                    job.target.clone(),
+                    &frequency,
+                    "OK",
+                    &job.source,
+                    &job.target,
                 )),
                 Err(error) => failed_directories.push(LogResult::new(
-                    frequency,
-                    error,
-                    job.source.clone(),
-                    job.target.clone(),
+                    &frequency,
+                    &error,
+                    &job.source,
+                    &job.target,
                 )),
             };
 
