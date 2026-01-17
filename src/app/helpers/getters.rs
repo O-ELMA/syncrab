@@ -34,17 +34,16 @@ impl App {
         let key = self.active_component.clone().unwrap().to_str();
         get_active_jobs(
             &self.search.value.to_lowercase(),
-                        &self.filter,
-                        &self.jobs.get(key).unwrap()
-        ).get(idx)
+            &self.filter,
+            &self.jobs.get(key).unwrap(),
+        )
+        .get(idx)
         .cloned()
     }
 
     pub fn get_active_log(&self, idx: usize) -> Option<&Log> {
-        get_active_logs(
-            &self.search.value.to_lowercase(), 
-            &self.logs
-        ).get(idx)
-        .cloned()
+        get_active_logs(&self.search.value.to_lowercase(), &self.logs)
+            .get(idx)
+            .cloned()
     }
 }

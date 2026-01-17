@@ -25,7 +25,7 @@ use crate::{
     consts::{
         DAILY, DAILY_BACKUPS, DAILY_COLS, FAILED, JOURNAL, JOURNAL_COLS, LOG, LOG_COLS, LOG_PATH,
         PARTIAL, REAL_TIME, REAL_TIME_BACKUPS, REAL_TIME_COLS, SUCCESS, WEEKLY, WEEKLY_BACKUPS,
-        WEEKLY_COLS,
+        WEEKLY_COLS, EMOJI_ACTIVE, EMOJI_INACTIVE
     },
     db::db::{insert_log, insert_log_resuts},
     structs::{Job, Log, LogResult, Stat},
@@ -553,4 +553,11 @@ pub fn get_active_logs<'a>(search_term: &str, logs: &'a [Log]) -> Vec<&'a Log> {
     };
 
     logs
+}
+
+pub fn status_emoji(value: u8) -> String {
+    match value {
+        1 => EMOJI_ACTIVE.to_string(),
+        _ => EMOJI_INACTIVE.to_string(),
+    }
 }

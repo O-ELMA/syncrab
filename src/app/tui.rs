@@ -1,4 +1,3 @@
-
 use std::io::{self, stdout, Stdout};
 
 use ratatui::{

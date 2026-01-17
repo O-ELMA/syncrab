@@ -7,7 +7,10 @@ use notify::{Event, RecommendedWatcher};
 use serde::{Deserialize, Serialize};
 
 // mods ─────────────────────────────────────────────────────────
-use crate::consts::{DAILY, EMOJI_ACTIVE, EMOJI_INACTIVE, REAL_TIME, WEEKLY};
+use crate::{
+    consts::{DAILY, REAL_TIME, WEEKLY},
+    utils::status_emoji
+};
 
 // Structs & Enums ──────────────────────────────────────────────
 
@@ -51,32 +54,16 @@ impl Job {
                 self.id.unwrap().to_string(),
                 self.source.clone(),
                 self.target.clone(),
-                if self.mirror == 1 {
-                    EMOJI_ACTIVE.to_string()
-                } else {
-                    EMOJI_INACTIVE.to_string()
-                },
-                if self.active == 1 {
-                    EMOJI_ACTIVE.to_string()
-                } else {
-                    EMOJI_INACTIVE.to_string()
-                },
+                status_emoji(self.mirror),
+                status_emoji(self.active),
             ],
             DAILY => vec![
                 self.id.unwrap().to_string(),
                 self.source.clone(),
                 self.target.clone(),
                 formatted_hour,
-                if self.mirror == 1 {
-                    EMOJI_ACTIVE.to_string()
-                } else {
-                    EMOJI_INACTIVE.to_string()
-                },
-                if self.active == 1 {
-                    EMOJI_ACTIVE.to_string()
-                } else {
-                    EMOJI_INACTIVE.to_string()
-                },
+                status_emoji(self.mirror),
+                status_emoji(self.active),
             ],
             WEEKLY => {
                 let day = self.day.clone().unwrap_or_default();
@@ -92,16 +79,8 @@ impl Job {
                     self.target.clone(),
                     formatted_hour,
                     formatted_day,
-                    if self.mirror == 1 {
-                        EMOJI_ACTIVE.to_string()
-                    } else {
-                        EMOJI_INACTIVE.to_string()
-                    },
-                    if self.active == 1 {
-                        EMOJI_ACTIVE.to_string()
-                    } else {
-                        EMOJI_INACTIVE.to_string()
-                    },
+                    status_emoji(self.mirror),
+                    status_emoji(self.active),
                 ]
             }
             _ => panic!(
