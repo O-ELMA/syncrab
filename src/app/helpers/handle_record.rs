@@ -30,7 +30,11 @@ impl App {
                 }
             }
             self.suggestion_state.active = false;
-            return;
+
+            // If this is a Job modal, continue to commit instead of returning
+            if self.active_modal != Some(Modal::Job) {
+                return;
+            }
         }
 
         if !self.is_record_valid() {
@@ -82,10 +86,14 @@ impl App {
                         }
                         None => {
                             job.id = Some(id as u16);
+                            let job_id = job.id.unwrap();
+                            let job_freq = job.frequency.clone();
                             jobs.push(job.clone());
 
                             stat.count += 1;
                             stat.inactive_count += 1;
+
+                            self.select_job_by_id(&job_freq, job_id);
                         }
                     };
 
@@ -106,17 +114,25 @@ impl App {
         self.day.value = job.day.clone().unwrap_or_default();
 
         self.selected_job = Some(job);
+        self.suggestion_state.active = false;
 
+        let preserved_component = self.active_component.clone();
         self.commit_record();
+        self.active_component = preserved_component;
     }
 
     pub fn delete_record(&mut self, job: Job) {
         //TODO: popup to confirm delete
 
+        let freq = job.frequency.as_str();
+        let current_index = self
+            .states
+            .get(freq)
+            .and_then(|s| s.table_state.selected())
+            .unwrap_or(0);
+
         match delete(&mut self.db, job.id.unwrap()) {
             Ok(_) => {
-                let freq = job.frequency.as_str();
-
                 self.jobs
                     .get_mut(freq)
                     .unwrap()
@@ -128,6 +144,19 @@ impl App {
                     stat.active_count -= 1;
                 } else {
                     stat.inactive_count -= 1;
+                }
+
+                let new_index = if current_index == 0 {
+                    0
+                } else {
+                    current_index - 1
+                };
+
+                if let Some(state) = self.states.get_mut(freq) {
+                    let jobs_len = self.jobs.get(freq).map(|j| j.len()).unwrap_or(0);
+                    let clamped_index = new_index.min(jobs_len.saturating_sub(1));
+                    state.table_state.select(Some(clamped_index));
+                    state.scroll = clamped_index;
                 }
             }
             Err(e) => println!("{e}"), //TODO: add popup for the error

@@ -173,6 +173,11 @@ impl App {
     }
 
     pub fn handle_scroll(&mut self, direction: i32) -> Result<()> {
+        let active_input_suggestions_len = self
+            .get_active_input()
+            .map(|input| input.suggestions.len())
+            .unwrap_or(0);
+
         if let Some(comp) = self.active_component.as_ref() {
             if comp.is_table() {
                 let comp_str = comp.to_str();
@@ -212,7 +217,7 @@ impl App {
             } else if comp.is_field() && comp != &Component::Search {
                 if comp.is_listable()
                     && self.suggestion_state.active
-                    && self.suggestion_state.len > 1
+                    && active_input_suggestions_len > 1
                 {
                     if direction == 1 {
                         self.suggestion_state.state.select_next();

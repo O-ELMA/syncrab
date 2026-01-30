@@ -46,4 +46,18 @@ impl App {
             .get(idx)
             .cloned()
     }
+
+    pub fn select_job_by_id(&mut self, freq: &str, job_id: u16) {
+        if let Some(jobs) = self.jobs.get(freq) {
+            let filtered_jobs =
+                get_active_jobs(&self.search.value.to_lowercase(), &self.filter, jobs);
+
+            if let Some(index) = filtered_jobs.iter().position(|job| job.id == Some(job_id)) {
+                if let Some(state) = self.states.get_mut(freq) {
+                    state.table_state.select(Some(index));
+                    state.scroll = index;
+                }
+            }
+        }
+    }
 }
