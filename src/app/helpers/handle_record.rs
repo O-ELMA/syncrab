@@ -163,39 +163,6 @@ impl App {
         }
     }
 
-    pub fn toggle_active(&mut self) {
-        if let Some(job) = &mut self.selected_job {
-            job.active ^= 1;
-
-            let freq = job.frequency.as_str();
-
-            match update(&mut self.db, job) {
-                Ok(_) => {
-                    let stat = self.stats.get_mut(freq).unwrap();
-                    let jobs = self.jobs.get_mut(freq).unwrap();
-
-                    if let Some(iter_job) = jobs
-                        .iter_mut()
-                        .find(|iter_job| iter_job.id == Some(job.id.unwrap()))
-                    {
-                        *iter_job = job.clone();
-                    }
-
-                    if job.active == 1 {
-                        stat.active_count += 1;
-                        stat.inactive_count -= 1;
-                    } else {
-                        stat.active_count -= 1;
-                        stat.inactive_count += 1;
-                    }
-                }
-                Err(e) => println!("{e}"), //TODO: add popup for the error
-            }
-
-            self.selected_job = None;
-        }
-    }
-
     pub fn mass_active(&mut self, section: &str, active: u8) {
         let jobs = match self.jobs.get(section) {
             Some(j) => j,
@@ -240,28 +207,50 @@ impl App {
         }
     }
 
-    pub fn toggle_mirror(&mut self) {
-        if let Some(job) = &mut self.selected_job {
-            job.mirror ^= 1;
-
-            let freq = job.frequency.as_str();
-
-            match update(&mut self.db, job) {
-                Ok(_) => {
-                    let jobs = self.jobs.get_mut(freq).unwrap();
-
-                    if let Some(iter_job) = jobs
-                        .iter_mut()
-                        .find(|iter_job| iter_job.id == Some(job.id.unwrap()))
-                    {
-                        *iter_job = job.clone();
-                    }
-                }
-                Err(e) => println!("{e}"), //TODO: add popup for the error
-            }
-
-            self.selected_job = None;
+    pub fn toggle_active(&mut self) {
+        if let Some(mut job) = self.selected_job.clone() {
+            job.active ^= 1;
+            self.update_job_field(job, true);
         }
+    }
+
+    pub fn toggle_mirror(&mut self) {
+        if let Some(mut job) = self.selected_job.clone() {
+            job.mirror ^= 1;
+            self.update_job_field(job, false);
+        }
+    }
+
+    fn update_job_field(&mut self, job: Job, update_stats: bool) {
+        let job_id = job.id;
+        let freq = job.frequency.clone();
+
+        match update(&mut self.db, &job) {
+            Ok(_) => {
+                let jobs = self.jobs.get_mut(freq.as_str()).unwrap();
+
+                if let Some(iter_job) = jobs.iter_mut().find(|j| j.id == job_id) {
+                    *iter_job = job.clone();
+                }
+
+                if update_stats {
+                    let stat = self.stats.get_mut(freq.as_str()).unwrap();
+                    let (active_count, inactive_count) =
+                        jobs.iter().fold((0u16, 0u16), |(a, i), j| {
+                            if j.active == 1 {
+                                (a + 1, i)
+                            } else {
+                                (a, i + 1)
+                            }
+                        });
+                    stat.active_count = active_count;
+                    stat.inactive_count = inactive_count;
+                }
+            }
+            Err(e) => println!("{e}"),
+        }
+
+        self.selected_job = None;
     }
 
     fn is_record_valid(&self) -> bool {

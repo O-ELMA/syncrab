@@ -45,45 +45,36 @@ impl Job {
     }
 
     pub fn get_fields_data(&self) -> Vec<Cow<'_, str>> {
-        let hour = self.hour.to_string();
-        let formatted_hour = if hour.len() == 1 {
-            Cow::Owned(format!("0{}", hour))
-        } else {
-            Cow::Owned(hour)
-        };
+        let formatted_hour = format!("{:02}", self.hour);
 
         match self.frequency.as_str() {
             REAL_TIME => vec![
                 Cow::Owned(self.id.unwrap().to_string()),
                 Cow::Borrowed(&self.source),
                 Cow::Borrowed(&self.target),
-                Cow::Owned(status_emoji(self.mirror)),
-                Cow::Owned(status_emoji(self.active)),
+                Cow::Borrowed(status_emoji(self.mirror)),
+                Cow::Borrowed(status_emoji(self.active)),
             ],
             DAILY => vec![
-                Cow::Owned(self.id.unwrap().to_string()),
+                Cow::Owned(self.id.map(|id| id.to_string()).unwrap_or_default()),
                 Cow::Borrowed(&self.source),
                 Cow::Borrowed(&self.target),
-                formatted_hour,
-                Cow::Owned(status_emoji(self.mirror)),
-                Cow::Owned(status_emoji(self.active)),
+                Cow::Owned(formatted_hour),
+                Cow::Borrowed(status_emoji(self.mirror)),
+                Cow::Borrowed(status_emoji(self.active)),
             ],
             WEEKLY => {
                 let day = self.day.as_deref().unwrap_or_default();
-                let formatted_day = if day.len() == 1 {
-                    Cow::Owned(format!("0{}", day))
-                } else {
-                    Cow::Borrowed(day)
-                };
+                let formatted_day = format!("{:02}", day);
 
                 vec![
-                    Cow::Owned(self.id.unwrap().to_string()),
+                    Cow::Owned(self.id.map(|id| id.to_string()).unwrap_or_default()),
                     Cow::Borrowed(&self.source),
                     Cow::Borrowed(&self.target),
-                    formatted_hour,
-                    formatted_day,
-                    Cow::Owned(status_emoji(self.mirror)),
-                    Cow::Owned(status_emoji(self.active)),
+                    Cow::Owned(formatted_hour),
+                    Cow::Owned(formatted_day),
+                    Cow::Borrowed(status_emoji(self.mirror)),
+                    Cow::Borrowed(status_emoji(self.active)),
                 ]
             }
             _ => panic!(
@@ -139,14 +130,14 @@ impl Log {
         }
     }
 
-    pub fn get_fields_data(&self) -> Vec<String> {
+    pub fn get_fields_data(&self) -> Vec<Cow<'_, str>> {
         vec![
-            self.id.unwrap().to_string(),
-            self.startstamp.to_string(),
-            self.endstamp.to_string(),
-            self.status.to_string(),
-            self.success_count.to_string(),
-            self.failed_count.to_string(),
+            Cow::Owned(self.id.map(|id| id.to_string()).unwrap_or_default()),
+            Cow::Borrowed(&self.startstamp),
+            Cow::Borrowed(&self.endstamp),
+            Cow::Borrowed(&self.status),
+            Cow::Owned(self.success_count.to_string()),
+            Cow::Owned(self.failed_count.to_string()),
         ]
     }
 }

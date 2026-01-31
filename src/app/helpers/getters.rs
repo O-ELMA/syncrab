@@ -31,20 +31,20 @@ impl App {
     }
 
     pub fn get_active_job(&self, idx: usize) -> Option<&Job> {
-        let key = self.active_component.clone().unwrap().to_str();
+        let key = self.active_component.as_ref()?.to_str();
         get_active_jobs(
             &self.search.value.to_lowercase(),
             &self.filter,
-            &self.jobs.get(key).unwrap(),
+            self.jobs.get(key)?,
         )
         .get(idx)
-        .cloned()
+        .copied()
     }
 
     pub fn get_active_log(&self, idx: usize) -> Option<&Log> {
         get_active_logs(&self.search.value.to_lowercase(), &self.logs)
             .get(idx)
-            .cloned()
+            .copied()
     }
 
     pub fn select_job_by_id(&mut self, freq: &str, job_id: u16) {

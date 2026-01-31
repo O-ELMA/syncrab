@@ -348,6 +348,7 @@ fn draw_progress_bar(current: &usize, total: &usize) {
 
     std::io::stdout().flush().unwrap();
 }
+
 pub fn fallback_log(log: &Log, results: &Vec<LogResult>, error: &str) {
     let log_path = if let Ok(home) = env::var("HOME") {
         LOG_PATH.replace("$HOME", &home)
@@ -555,9 +556,9 @@ pub fn get_active_logs<'a>(search_term: &str, logs: &'a [Log]) -> Vec<&'a Log> {
     logs
 }
 
-pub fn status_emoji(value: u8) -> String {
+pub fn status_emoji(value: u8) -> &'static str {
     match value {
-        1 => EMOJI_ACTIVE.to_string(),
-        _ => EMOJI_INACTIVE.to_string(),
+        1 => EMOJI_ACTIVE,
+        _ => EMOJI_INACTIVE,
     }
 }
