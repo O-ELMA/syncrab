@@ -95,7 +95,7 @@ line
 # Scheduling batch via cron ────────────────────────────────────────────────────────────
 log "Scheduling the backup batch via cron every hour..."
 
-CRON_JOB="0 * * * * $HOME/.cargo/bin/syncrab_b"
+CRON_JOB="0 * * * * $HOME/.cargo/bin/syncrab_b --silent"
 
 # Add to crontab if not already present
 bash -c "( crontab -l 2>/dev/null | grep -v syncrab_b ; echo \"$CRON_JOB\" ) | crontab -"

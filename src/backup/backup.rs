@@ -19,6 +19,8 @@ fn main() {
 
     let args = prompt_user();
 
+    let silent = env::args().any(|arg| arg == "--silent");
+
     let mut conn = init_db();
     let jobs: HashMap<&'static str, Vec<Job>> =
         get_jobs_to_run(&conn, args, now.weekday().to_string(), now.hour() as u8);
@@ -31,8 +33,10 @@ fn main() {
             continue;
         }
 
-        println!("\n🚀 Performing {} backups...", freq);
-        println!("──────────────────────────────────────────────────────────\n");
+        if !silent {
+            println!("\n🚀 Performing {} backups...", freq);
+            println!("──────────────────────────────────────────────────────────\n");
+        }
 
         let jobs_count = jobs.len();
         let jobs_width = jobs_count.to_string().len();
@@ -42,13 +46,15 @@ fn main() {
             let source = normalise_path(&job.source);
             let target = normalise_path(&job.target);
 
-            println!(
-                "[{}/{}] - Copying [{}] 👉 [{}]",
-                format!("{:0width$}", i + 1, width = jobs_width),
-                jobs_count,
-                source.display(),
-                target.display()
-            );
+            if !silent {
+                println!(
+                    "[{}/{}] - Copying [{}] 👉 [{}]",
+                    format!("{:0width$}", i + 1, width = jobs_width),
+                    jobs_count,
+                    source.display(),
+                    target.display()
+                );
+            }
 
             if !are_paths_valid(&frequency, job, &source, &target, &mut failed_directories) {
                 continue;
@@ -69,7 +75,14 @@ fn main() {
 
             let children_count = count_children(&source);
 
-            match copy_dir(&source, &dest_path, job.mirror, children_count, &mut 0) {
+            match copy_dir(
+                &source,
+                &dest_path,
+                job.mirror,
+                children_count,
+                &mut 0,
+                silent,
+            ) {
                 Ok(_) => success_directories.push(LogResult::new(
                     &frequency,
                     "OK",
@@ -84,20 +97,25 @@ fn main() {
                 )),
             };
 
-            if children_count > 1 {
+            if !silent && children_count > 1 {
                 println!("");
             }
         }
 
-        println!("\n──────────────────────────────────────────────────────────");
-        println!("✅ Backups completed successfully!");
+        if !silent {
+            println!("\n──────────────────────────────────────────────────────────");
+            println!("✅ Backups completed successfully!");
+        }
     }
 
     log_results(&mut conn, log, success_directories, failed_directories);
 }
 
 fn prompt_user() -> Option<(String, Option<String>)> {
-    let args: Vec<String> = env::args().skip(1).collect();
+    let args: Vec<String> = env::args()
+        .skip(1)
+        .filter(|arg| arg != "--silent")
+        .collect();
 
     match args.len() {
         0 => None,

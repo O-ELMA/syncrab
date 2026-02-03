@@ -183,6 +183,7 @@ pub fn copy_dir(
     mirror: u8,
     total: usize,
     count: &mut usize,
+    silent: bool,
 ) -> Result<(), String> {
     if source.is_file() {
         // Create parent dir if it doesn't exist
@@ -208,7 +209,7 @@ pub fn copy_dir(
         }
 
         *count += 1;
-        draw_progress_bar(&count, &total);
+        draw_progress_bar(&count, &total, silent);
     } else if source.is_dir() {
         create_dir_all(target).map_err(|e| {
             format!(
@@ -217,6 +218,9 @@ pub fn copy_dir(
                 e
             )
         })?;
+
+        *count += 1;
+        draw_progress_bar(&count, &total, silent);
 
         let source_entries: Vec<_> = read_dir(source)
             .map_err(|e| {
@@ -269,7 +273,14 @@ pub fn copy_dir(
         for entry in source_entries {
             let path = entry.path();
             let new_target = target.join(entry.file_name());
-            copy_dir(&path, &new_target, mirror, total, count)?;
+            copy_dir(
+                &path,
+                &new_target,
+                mirror,
+                total,
+                count,
+                silent,
+            )?;
         }
     } else {
         return Err(format!(
@@ -325,9 +336,8 @@ pub fn count_children(path: &PathBuf) -> usize {
     count_str.trim().parse::<usize>().unwrap_or(0)
 }
 
-fn draw_progress_bar(current: &usize, total: &usize) {
-    // Don't draw the bar if the total is one item or no item
-    if *total == 0 || *total == 1 {
+fn draw_progress_bar(current: &usize, total: &usize, silent: bool) {
+    if silent || *total == 0 || *total == 1 {
         return;
     }
 
