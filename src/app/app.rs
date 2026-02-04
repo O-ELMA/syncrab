@@ -17,7 +17,7 @@ use ratatui::{
 
 // mods ──────────────────────────────────────────────────────────
 use super::{
-    components::{footer, header, modal, search, section, title},
+    components::{delete_confirmation, footer, header, modal, search, section, title},
     structs::{Component, Filter, InputField, Modal, SectionState, SuggestionState},
 };
 use crate::{
@@ -59,6 +59,8 @@ pub struct App {
 
     pub selected_job: Option<Job>,
     pub selected_log: Option<Log>,
+
+    pub pending_delete: Option<Job>,
 }
 
 impl App {
@@ -86,6 +88,7 @@ impl App {
             show_journal: false,
             selected_job: None,
             selected_log: None,
+            pending_delete: None,
         }
     }
 
@@ -174,6 +177,7 @@ impl Widget for &mut App {
         search(search_area, buf, self);
         section(section_area, buf, self);
         modal(area, buf, self);
+        delete_confirmation(area, buf, self);
         footer(footer_area, buf, self);
     }
 }

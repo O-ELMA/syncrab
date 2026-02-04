@@ -20,6 +20,13 @@ use crate::{
 impl App {
     // Handle key events
     pub fn handle_key(&mut self, event: KeyEvent) -> Result<()> {
+        if let Some(job) = self.pending_delete.take() {
+            if event.code == Delete {
+                self.delete_record(job);
+            }
+            return Ok(());
+        }
+
         if event.code == Esc {
             self.reset_values();
             return Ok(());
@@ -74,7 +81,7 @@ impl App {
                 }
                 (_, Delete) => {
                     if let Some(job) = self.get_active_job(idx).cloned() {
-                        self.delete_record(job);
+                        self.pending_delete = Some(job);
                     }
                 }
                 (KeyModifiers::CONTROL, Char('c')) => {

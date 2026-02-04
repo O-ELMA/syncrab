@@ -25,12 +25,12 @@ use crate::{
         ACTION_EDIT, ACTION_ENABLE, ACTION_ERASE, ACTION_LOGS, ACTION_MIRROR, ACTION_MOVE,
         ACTION_NEW, ACTION_QUIT, ACTION_UPDATE, ACTION_VIEW, ACTIVE, ACTIVE_SLIDER, APP_SUBTITLE,
         APP_TITLE, ARROW_DOWN, ARROW_UP, COL_BEIGE, COL_BLUE, COL_BORDER, COL_GRAY, COL_GREEN,
-        COL_LBROWN, COL_MAGENTA, COL_ORANGE, COL_PURPLE, COL_TITLE, DAILY, DAY, EMOJI_FILTER,
-        EMOJI_SEARCH, EMOJI_SECTION, EMOJI_STATS, EMOJI_STATUS_FAILED, EMOJI_STATUS_OTHER,
-        EMOJI_STATUS_PARTIAL, EMOJI_STATUS_SUCCESS, FAILED, FILTER, HOUR, INACTIVE, JOURNAL, LOG,
-        PARTIAL, REAL_TIME, REPLACE, REPLACE_WITH, SEARCH, SEPARATOR, SHORTCUT_DAILY,
-        SHORTCUT_FILTER, SHORTCUT_REAL_TIME, SHORTCUT_SEARCH, SHORTCUT_WEEKLY, SLIDER, SOURCE,
-        SUCCESS, TARGET, TO_REPLACE, WEEKLY,
+        COL_LBROWN, COL_MAGENTA, COL_ORANGE, COL_PURPLE, COL_RED, COL_TITLE, DAILY, DAY,
+        EMOJI_FILTER, EMOJI_SEARCH, EMOJI_SECTION, EMOJI_STATS, EMOJI_STATUS_FAILED,
+        EMOJI_STATUS_OTHER, EMOJI_STATUS_PARTIAL, EMOJI_STATUS_SUCCESS, FAILED, FILTER, HOUR,
+        INACTIVE, JOURNAL, LOG, PARTIAL, REAL_TIME, REPLACE, REPLACE_WITH, SEARCH, SEPARATOR,
+        SHORTCUT_DAILY, SHORTCUT_FILTER, SHORTCUT_REAL_TIME, SHORTCUT_SEARCH, SHORTCUT_WEEKLY,
+        SLIDER, SOURCE, SUCCESS, TARGET, TO_REPLACE, WEEKLY,
     },
     structs::Stat,
     utils::{
@@ -569,6 +569,31 @@ pub fn modal(area: Rect, buf: &mut Buffer, app: &mut App) {
     else if matches!(app.active_modal, Some(Modal::Job) | Some(Modal::Replace)) {
         form(area, buf, app);
     }
+}
+
+pub fn delete_confirmation(area: Rect, buf: &mut Buffer, app: &App) {
+    if app.pending_delete.is_none() {
+        return;
+    }
+    let vertical = Layout::vertical([Constraint::Length(3)]).flex(Flex::Center);
+    let horizontal = Layout::horizontal([Constraint::Length(30)]).flex(Flex::Center);
+    let [popup_area] = vertical.areas(area);
+    let [popup_area] = horizontal.areas(popup_area);
+
+    Clear.render(popup_area, buf);
+
+    Block::bordered()
+        .border_style(COL_RED)
+        .border_type(BorderType::Rounded)
+        .render(popup_area, buf);
+
+    Paragraph::new("Press DEL again to confirm")
+        .fg(COL_RED)
+        .alignment(Alignment::Center)
+        .render(
+            Rect::new(popup_area.x + 1, popup_area.y + 1, popup_area.width - 2, 1),
+            buf,
+        );
 }
 
 // Footer ───────────────────────────────────────────────────────
