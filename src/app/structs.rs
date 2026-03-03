@@ -178,21 +178,7 @@ impl Component {
 
 impl fmt::Display for Component {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Component::Search => write!(f, "{}", SEARCH),
-            Component::Journal => write!(f, "{}", JOURNAL),
-            Component::Log => write!(f, "{}", LOG),
-            Component::Source => write!(f, "{}", SOURCE),
-            Component::Target => write!(f, "{}", TARGET),
-            Component::Hour => write!(f, "{}", HOUR),
-            Component::Day => write!(f, "{}", DAY),
-            Component::Daily => write!(f, "{}", DAILY),
-            Component::Weekly => write!(f, "{}", WEEKLY),
-            Component::RealTime => write!(f, "{}", REAL_TIME),
-
-            Component::ToReplace => write!(f, "{}", TO_REPLACE),
-            Component::ReplaceWith => write!(f, "{}", REPLACE_WITH),
-        }
+        write!(f, "{}", self.to_str())
     }
 }
 
