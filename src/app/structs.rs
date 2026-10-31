@@ -1,6 +1,5 @@
 // Standards ────────────────────────────────────────────────────
 use std::{
-    env::var,
     fmt,
     fs::read_dir,
     path::{MAIN_SEPARATOR, Path, PathBuf},
@@ -8,6 +7,7 @@ use std::{
 };
 
 // mods ─────────────────────────────────────────────────────────
+use crate::utils::home_dir;
 use crate::consts::{
     ACTIVE, ALL, DAILY, DAY, DELIMITERS, HOUR, INACTIVE, JOURNAL, LOG, REAL_TIME, REPLACE_WITH,
     SEARCH, SOURCE, TARGET, TO_REPLACE, WEEKLY,
@@ -359,57 +359,62 @@ impl InputField {
             return;
         }
 
-        let input = &self.value;
-        let input = if self.value.starts_with('~') {
-            if let Ok(home) = var("HOME") {
-                input.replacen("~", &home, 1)
-            } else {
-                input.clone()
-            }
-        } else {
-            input.clone()
+        let input = expand_home(&self.value);
+        let (search_dir, query) = resolve_search_target(&input);
+
+        self.suggestions = dir_suggestions(search_dir, &query);
+    }
+}
+
+fn expand_home(input: &str) -> String {
+    if input.starts_with('~') {
+        if let Some(home) = home_dir() {
+            return input.replacen("~", &home.to_string_lossy(), 1);
+        }
+    }
+    input.to_string()
+}
+
+fn resolve_search_target(input: &str) -> (PathBuf, String) {
+    let sep = MAIN_SEPARATOR;
+
+    if input.ends_with(sep) {
+        // Typed a directory separator (e.g., "/usr/") -> List contents of that dir
+        (PathBuf::from(input), String::new())
+    } else {
+        // Typed partial name (e.g., "/usr/Downl" or "Downl")
+        let path = Path::new(input);
+        let parent = path.parent();
+        let file_stem = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+
+        // If parent is empty, we search the root "/"
+        let dir = match parent {
+            Some(p) if p.as_os_str().is_empty() => PathBuf::from(format!("{}", sep)),
+            Some(p) => p.to_path_buf(),
+            None => PathBuf::from(format!("{}", sep)),
         };
+        (dir, file_stem.to_string())
+    }
+}
 
-        // Identify the Operating System's separator ('/' or '\')
-        let sep = MAIN_SEPARATOR;
+fn dir_suggestions(search_dir: PathBuf, query: &str) -> Vec<String> {
+    let query_lower = query.to_lowercase();
+    let mut suggestions = vec![];
 
-        // Determine the directory to search and the substring to match
-        let (search_dir, query) = if input.ends_with(sep) {
-            // Case 2: Typed a directory separator (e.g., "/usr/") -> List contents of that dir
-            (std::path::PathBuf::from(input), String::new())
-        } else {
-            // Case 3: Typed partial name (e.g., "/usr/Downl" or "Downl")
-            let path = Path::new(&input);
-            let parent = path.parent();
-            let file_stem = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
-
-            // If parent is empty, we search the root "/"
-            let dir = match parent {
-                Some(p) if p.as_os_str().is_empty() => PathBuf::from(format!("{}", sep)),
-                Some(p) => p.to_path_buf(),
-                None => PathBuf::from(format!("{}", sep)),
-            };
-            (dir, file_stem.to_string())
-        };
-
-        let mut suggestions = vec![];
-        let query_lower = query.to_lowercase();
-
-        // Read the directory and filter results
-        if let Ok(entries) = read_dir(search_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                // Get the filename to check if it contains the substring
-                if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
-                    if file_name.to_lowercase().contains(&query_lower) {
-                        suggestions.push(path.to_string_lossy().to_string());
-                    }
+    // Read the directory and filter results
+    if let Ok(entries) = read_dir(search_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            // Get the filename to check if it contains the substring
+            if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
+                if file_name.to_lowercase().contains(&query_lower) {
+                    suggestions.push(path.to_string_lossy().to_string());
                 }
             }
         }
-
-        self.suggestions = suggestions;
     }
+
+    suggestions
 }
 
 // SuggestionState

@@ -1,5 +1,10 @@
 // Standards ─────────────────────────────────────────────────────
-use std::{collections::HashMap, env, path::PathBuf};
+use std::{
+    collections::HashMap,
+    env,
+    fs::{copy, create_dir_all, rename},
+    path::PathBuf,
+};
 
 // Crates ────────────────────────────────────────────────────────
 use rusqlite::{Connection, Transaction};
@@ -8,6 +13,7 @@ use rusqlite::{Connection, Transaction};
 use crate::{
     consts::{ACTIVE, ALL, DAILY, DB_NAME, INACTIVE, REAL_TIME, WEEKLY},
     structs::{Job, Log, LogResult},
+    utils::data_dir,
 };
 
 // DB Helpers ─────────────────────────────────────────────────────
@@ -78,16 +84,38 @@ where
 
 // DB ───────────────────────────────────────────────────────────
 pub fn db_path() -> PathBuf {
-    let exe_path = env::current_exe().expect("❌ Failed to get current executable path");
-    let exe_dir = exe_path
-        .parent()
-        .expect("❌ Executable must be in some directory");
+    let dir = data_dir();
+    let _ = create_dir_all(&dir);
+    dir.join(DB_NAME)
+}
 
-    if exe_dir.ends_with("debug") || exe_dir.ends_with("release") {
-        let cwd = env::current_dir().expect("❌ Failed to get current working directory");
-        cwd.join(DB_NAME)
-    } else {
-        exe_dir.join(DB_NAME)
+fn legacy_db_path() -> Option<PathBuf> {
+    let exe = env::current_exe().ok()?;
+    let dir = exe.parent()?;
+
+    // Build directories are dev checkouts, never a real install
+    if dir.ends_with("debug") || dir.ends_with("release") {
+        return None;
+    }
+
+    Some(dir.join(DB_NAME))
+}
+
+fn migrate_legacy_db() {
+    let new_path = db_path();
+    if new_path.exists() {
+        return;
+    }
+
+    let Some(old_path) = legacy_db_path() else {
+        return;
+    };
+    if !old_path.exists() {
+        return;
+    }
+
+    if rename(&old_path, &new_path).is_err() {
+        let _ = copy(&old_path, &new_path);
     }
 }
 
@@ -97,8 +125,14 @@ fn db_connect() -> Connection {
 }
 
 pub fn init_db() -> Connection {
+    migrate_legacy_db();
     let conn: Connection = db_connect();
+    create_tables(&conn);
+    conn
+}
 
+// Create the jobs, logs and log_results tables when they don't exist yet
+fn create_tables(conn: &Connection) {
     // Create Jobs table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS jobs (
@@ -141,8 +175,6 @@ pub fn init_db() -> Connection {
         [],
     )
     .unwrap_or_else(|e| panic!("❌ Failed to create the log_results table because [{}]", e));
-
-    conn
 }
 
 fn get_jobs(conn: &Connection, sql: &str) -> HashMap<&'static str, Vec<Job>> {
@@ -185,7 +217,12 @@ pub fn get_jobs_to_run(
     day: String,
     hour: u8,
 ) -> HashMap<&'static str, Vec<Job>> {
-    let sql = match args {
+    let sql = jobs_query(args, &day, hour);
+    get_jobs(conn, &sql)
+}
+
+fn jobs_query(args: Option<(String, Option<String>)>, day: &str, hour: u8) -> String {
+    match args {
         None => {
             format!(
                 "SELECT * FROM jobs WHERE active = 1 AND (
@@ -223,9 +260,7 @@ pub fn get_jobs_to_run(
                 }
             }
         }
-    };
-
-    get_jobs(&conn, &sql)
+    }
 }
 
 pub fn get_logs(conn: &Connection) -> Vec<Log> {
@@ -242,6 +277,12 @@ pub fn get_logs(conn: &Connection) -> Vec<Log> {
     });
 
     let log_results = get_log_results(conn);
+    attach_log_results(&mut logs, log_results);
+
+    logs
+}
+
+fn attach_log_results(logs: &mut [Log], log_results: Vec<LogResult>) {
     let mut results_map: HashMap<u16, Vec<LogResult>> = HashMap::new();
 
     for log_result in log_results {
@@ -251,13 +292,11 @@ pub fn get_logs(conn: &Connection) -> Vec<Log> {
             .push(log_result);
     }
 
-    for log in &mut logs {
+    for log in logs {
         if let Some(results) = results_map.remove(&log.id.unwrap()) {
             log.log_results = Some(results);
         }
     }
-
-    logs
 }
 
 pub fn get_log_results(conn: &Connection) -> Vec<LogResult> {

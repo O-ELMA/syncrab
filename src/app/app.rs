@@ -106,22 +106,7 @@ impl App {
         self.stats = stats;
 
         // Assign tables states
-        self.states = HashMap::with_capacity(5);
-        self.states.insert(
-            REAL_TIME,
-            SectionState::new(self.stats.get(REAL_TIME).unwrap().count as usize),
-        );
-        self.states.insert(
-            DAILY,
-            SectionState::new(self.stats.get(DAILY).unwrap().count as usize),
-        );
-        self.states.insert(
-            WEEKLY,
-            SectionState::new(self.stats.get(WEEKLY).unwrap().count as usize),
-        );
-        self.states
-            .insert(JOURNAL, SectionState::new(self.logs.len()));
-        self.states.insert(LOG, SectionState::new(0));
+        self.states = build_states(&self.stats, &self.logs);
 
         // Enable mouse event listener
         execute!(stdout(), EnableMouseCapture).unwrap();
@@ -150,6 +135,28 @@ impl App {
             _ => Ok(()),
         }
     }
+}
+
+fn build_states(
+    stats: &HashMap<&'static str, Stat>,
+    logs: &[Log],
+) -> HashMap<&'static str, SectionState> {
+    let mut states = HashMap::with_capacity(5);
+    states.insert(
+        REAL_TIME,
+        SectionState::new(stats.get(REAL_TIME).unwrap().count as usize),
+    );
+    states.insert(
+        DAILY,
+        SectionState::new(stats.get(DAILY).unwrap().count as usize),
+    );
+    states.insert(
+        WEEKLY,
+        SectionState::new(stats.get(WEEKLY).unwrap().count as usize),
+    );
+    states.insert(JOURNAL, SectionState::new(logs.len()));
+    states.insert(LOG, SectionState::new(0));
+    states
 }
 
 impl Widget for &mut App {

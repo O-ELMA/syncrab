@@ -24,3 +24,6 @@ path = "src/backup/backup.rs"
 [[bin]]
 name = "syncrab_w"
 path = "src/watcher/watcher.rs"
+
+[profile.release]
+strip = true

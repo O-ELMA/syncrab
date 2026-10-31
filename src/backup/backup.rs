@@ -9,7 +9,7 @@ use syncrab::{
     consts::{ACTIVE, ALL, DAILY, INACTIVE, REAL_TIME, VALID_OPTS_1, VALID_OPTS_2, WEEKLY},
     db::db::{get_jobs_to_run, init_db},
     structs::{Job, Log, LogResult},
-    utils::{are_paths_valid, copy_dir, count_children, log_results, normalise_path},
+    utils::{are_paths_valid, copy_dir, count_children, log_results, normalise_path, CopyProgress},
 };
 
 // Init ──────────────────────────────────────────────────────────
@@ -38,69 +38,13 @@ fn main() {
             println!("──────────────────────────────────────────────────────────\n");
         }
 
-        let jobs_count = jobs.len();
-        let jobs_width = jobs_count.to_string().len();
-
-        for (i, job) in jobs.iter().enumerate() {
-            let frequency = freq.to_string();
-            let source = normalise_path(&job.source);
-            let target = normalise_path(&job.target);
-
-            if !silent {
-                println!(
-                    "[{}/{}] - Copying [{}] 👉 [{}]",
-                    format!("{:0width$}", i + 1, width = jobs_width),
-                    jobs_count,
-                    source.display(),
-                    target.display()
-                );
-            }
-
-            if !are_paths_valid(&frequency, job, &source, &target, &mut failed_directories) {
-                continue;
-            }
-
-            let dest_path = match source.file_name() {
-                Some(name) => target.join(name),
-                None => {
-                    failed_directories.push(LogResult::new(
-                        &frequency,
-                        &format!("Source path [{}] has no file name", source.display()),
-                        &job.source,
-                        &job.target,
-                    ));
-                    continue;
-                }
-            };
-
-            let children_count = count_children(&source);
-
-            match copy_dir(
-                &source,
-                &dest_path,
-                job.mirror,
-                children_count,
-                &mut 0,
-                silent,
-            ) {
-                Ok(_) => success_directories.push(LogResult::new(
-                    &frequency,
-                    "OK",
-                    &job.source,
-                    &job.target,
-                )),
-                Err(error) => failed_directories.push(LogResult::new(
-                    &frequency,
-                    &error,
-                    &job.source,
-                    &job.target,
-                )),
-            };
-
-            if !silent && children_count > 1 {
-                println!("");
-            }
-        }
+        backup_frequency(
+            freq,
+            jobs,
+            silent,
+            &mut success_directories,
+            &mut failed_directories,
+        );
 
         if !silent {
             println!("\n──────────────────────────────────────────────────────────");
@@ -109,6 +53,82 @@ fn main() {
     }
 
     log_results(&mut conn, log, success_directories, failed_directories);
+}
+
+// Back up every job in one frequency bucket, recording per-job results
+fn backup_frequency(
+    freq: &str,
+    jobs: &[Job],
+    silent: bool,
+    success_directories: &mut Vec<LogResult>,
+    failed_directories: &mut Vec<LogResult>,
+) {
+    let jobs_count = jobs.len();
+    let jobs_width = jobs_count.to_string().len();
+
+    for (i, job) in jobs.iter().enumerate() {
+        let frequency = freq.to_string();
+        let source = normalise_path(&job.source);
+        let target = normalise_path(&job.target);
+
+        if !silent {
+            println!(
+                "[{}/{}] - Copying [{}] 👉 [{}]",
+                format!("{:0width$}", i + 1, width = jobs_width),
+                jobs_count,
+                source.display(),
+                target.display()
+            );
+        }
+
+        if !are_paths_valid(&frequency, job, &source, &target, failed_directories) {
+            continue;
+        }
+
+        let dest_path = match source.file_name() {
+            Some(name) => target.join(name),
+            None => {
+                failed_directories.push(LogResult::new(
+                    &frequency,
+                    &format!("Source path [{}] has no file name", source.display()),
+                    &job.source,
+                    &job.target,
+                ));
+                continue;
+            }
+        };
+
+        let children_count = count_children(&source);
+        let mut count = 0;
+
+        match copy_dir(
+            &source,
+            &dest_path,
+            job.mirror,
+            &mut CopyProgress {
+                total: children_count,
+                count: &mut count,
+                silent,
+            },
+        ) {
+            Ok(_) => success_directories.push(LogResult::new(
+                &frequency,
+                "OK",
+                &job.source,
+                &job.target,
+            )),
+            Err(error) => failed_directories.push(LogResult::new(
+                &frequency,
+                &error,
+                &job.source,
+                &job.target,
+            )),
+        };
+
+        if !silent && children_count > 1 {
+            println!("");
+        }
+    }
 }
 
 fn prompt_user() -> Option<(String, Option<String>)> {
