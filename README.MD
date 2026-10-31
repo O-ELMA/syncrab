@@ -29,6 +29,52 @@ A Rust **TUI** and **CLI** for automating your backup jobs. [![Built With Ratatu
 
 ---
 
+## **🚀 Usage**
+
+1. **Install** (or update — it's the same command):
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/O-ELMA/syncrab/master/install.sh | sh
+   ```
+
+   On Windows, in PowerShell:
+
+   ```powershell
+   irm https://raw.githubusercontent.com/O-ELMA/syncrab/master/install.ps1 | iex
+   ```
+
+2. **Run the TUI**:
+
+   ```bash
+   syncrab
+   ```
+
+3. **Run the backup job manually** (whenever you want):
+
+   - `syncrab_b` accepts an optional frequency argument (`all`, `realtime`, `daily`, `weekly`), followed by an optional status (`active`, `inactive`):
+
+     ```bash
+     syncrab_b                  # sync active daily & weekly jobs that match the current hour and day
+     syncrab_b all              # sync all jobs (active and inactive)
+     syncrab_b realtime         # sync all realtime jobs (active and inactive)
+     syncrab_b daily active     # sync only active daily jobs
+     syncrab_b weekly inactive  # sync only inactive weekly jobs
+     ```
+
+4. **Uninstall**:
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/O-ELMA/syncrab/master/uninstall | sh
+   ```
+
+   On Windows, in PowerShell:
+
+   ```powershell
+   irm https://raw.githubusercontent.com/O-ELMA/syncrab/master/uninstall.ps1 | iex
+```
+
+---
+
 ## **🔧 Pre-Requisites**
 
 1. **Rust**: Install `rustup` to compile and run the app. [(guide)](https://www.rust-lang.org/tools/install).
@@ -62,48 +108,6 @@ A Rust **TUI** and **CLI** for automating your backup jobs. [![Built With Ratatu
 
    ```bash
    sudo zypper install -y rustup sqlite3 && rustup default stable
-   ```
-
----
-
-## **🚀 Usage**
-
-1. **Install**:
-
-   ```bash
-   git clone https://github.com/O-ELMA/syncrab.git && cd syncrab && bash ./install
-   ```
-
-   or update:
-
-   ```bash
-   git clone https://github.com/O-ELMA/syncrab.git && cd syncrab && bash ./update
-   ```
-
-2. **Run the TUI**:
-
-   ```bash
-   syncrab
-   ```
-
-3. **Run the backup job manually** (whenever you want):
-
-   - `syncrab_b` accepts an optional frequency argument (`all`, `realtime`, `daily`, `weekly`), followed by an optional status (`active`, `inactive`):
-
-     ```bash
-     syncrab_b                  # sync active daily & weekly jobs that match the current hour and day
-     syncrab_b all              # sync all jobs (active and inactive)
-     syncrab_b realtime         # sync all realtime jobs (active and inactive)
-     syncrab_b daily active     # sync only active daily jobs
-     syncrab_b weekly inactive  # sync only inactive weekly jobs
-     ```
-
-4. **Uninstall**:
-
-   Run the uninstall script:
-
-   ```bash
-   bash ./uninstall
    ```
 
 ---
