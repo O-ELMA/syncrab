@@ -6,7 +6,6 @@ use std::{
     fs::{copy, create_dir_all, read_dir, remove_dir_all, remove_file, DirEntry},
     io::Write,
     path::PathBuf,
-    process::Command,
 };
 
 // Progress passed through recursive copies
@@ -187,14 +186,23 @@ fn should_copy(source: &PathBuf, target: &PathBuf) -> Result<bool, String> {
 }
 
 pub fn count_children(path: &PathBuf) -> usize {
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(format!("find {} | wc -l", path.display()))
-        .output()
-        .expect("Failed to execute command");
+    let mut count = 1;
+    let Ok(entries) = read_dir(path) else {
+        return count;
+    };
 
-    let count_str = String::from_utf8_lossy(&output.stdout);
-    count_str.trim().parse::<usize>().unwrap_or(0)
+    for entry in entries.flatten() {
+        let entry_path = entry.path();
+        // Symlinks are counted, not followed, so a loop cannot hang the backup
+        let is_dir = entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false);
+        count += if is_dir {
+            count_children(&entry_path)
+        } else {
+            1
+        };
+    }
+
+    count
 }
 
 fn draw_progress_bar(progress: &CopyProgress<'_>) {

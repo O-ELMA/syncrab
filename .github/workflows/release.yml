@@ -1,0 +1,105 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            cross: true
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install musl toolchain
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - uses: taiki-e/install-action@v2
+        if: matrix.cross
+        with:
+          tool: cross
+
+      - name: Build
+        if: ${{ !matrix.cross }}
+        run: cargo build --release --target ${{ matrix.target }} --bins
+
+      - name: Build (cross)
+        if: matrix.cross
+        run: cross build --release --target ${{ matrix.target }} --bins
+
+      - name: Package (unix)
+        if: runner.os != 'Windows'
+        run: |
+          pkg="syncrab-${{ matrix.target }}"
+          mkdir -p "dist/$pkg"
+          cp "target/${{ matrix.target }}/release/syncrab" \
+             "target/${{ matrix.target }}/release/syncrab_b" \
+             "target/${{ matrix.target }}/release/syncrab_w" \
+             LICENSE README.MD "dist/$pkg/"
+          tar -czf "dist/$pkg.tar.gz" -C dist "$pkg"
+          rm -rf "dist/$pkg"
+
+      - name: Package (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $pkg = "syncrab-${{ matrix.target }}"
+          New-Item -ItemType Directory -Force "dist/$pkg" | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/syncrab.exe",
+                    "target/${{ matrix.target }}/release/syncrab_b.exe",
+                    "target/${{ matrix.target }}/release/syncrab_w.exe",
+                    LICENSE, README.MD "dist/$pkg"
+          Compress-Archive -Path "dist/$pkg/*" -DestinationPath "dist/$pkg.zip"
+          Remove-Item -Recurse "dist/$pkg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: syncrab-${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        run: cd dist && sha256sum *.tar.gz *.zip > SHA256SUMS && cat SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

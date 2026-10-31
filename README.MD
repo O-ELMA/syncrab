@@ -31,54 +31,42 @@ A Rust **TUI** and **CLI** for automating your backup jobs. [![Built With Ratatu
 
 ## **🔧 Pre-Requisites**
 
-1. **Rust**: Install `rustup` to compile and run the app. [(guide)](https://www.rust-lang.org/tools/install).
-2. **SQLite**: Install `sqlite` to store backup jobs & logs. [(guide)](https://sqlite.org/).
+- **Linux** (x86_64 or aarch64), **macOS** (Intel or Apple Silicon), or **Windows 10+** (x64).
+- No Rust toolchain, no SQLite install, no compiler — the release binaries are self-contained.
 
-   For arch-based systems, you can use `yay`:
-
-   ```bash
-   yay -S rustup sqlite --noconfirm && rustup default stable
-   ```
-
-   or `paru`:
-
-   ```bash
-   paru -S rustup sqlite --noconfirm && rustup default stable
-   ```
-
-   For Debian, Ubuntu, Linux Mint, Pop!\_OS
-
-   ```bash
-   sudo apt install rustup sqlite3 -y && rustup default stable
-   ```
-
-   For Fedora, RHEL, CentOS, AlmaLinux
-
-   ```bash
-   sudo dnf install rustup sqlite -y && rustup default stable
-   ```
-
-   For OpenSUSE:
-
-   ```bash
-   sudo zypper install -y rustup sqlite3 && rustup default stable
-   ```
+Only building from source needs Rust 1.85+ (edition 2024).
 
 ---
 
 ## **🚀 Usage**
 
-1. **Install**:
+1. **Install** (also how you update):
+
+   **Linux / macOS**
 
    ```bash
-   git clone https://github.com/O-ELMA/syncrab.git && cd syncrab && bash ./install
+   curl -fsSL https://raw.githubusercontent.com/O-ELMA/syncrab/master/install.sh | sh
    ```
 
-   or update:
+   **Windows** (PowerShell)
 
-   ```bash
-   git clone https://github.com/O-ELMA/syncrab.git && cd syncrab && bash ./update
+   ```powershell
+   irm https://raw.githubusercontent.com/O-ELMA/syncrab/master/install.ps1 | iex
    ```
+
+   The installer picks the release for your OS and CPU, verifies its SHA-256 checksum, installs `syncrab`, `syncrab_b` and `syncrab_w` into `~/.local/bin` (`%LOCALAPPDATA%\syncrab` on Windows), and wires up the background jobs:
+
+   | | Watcher (`syncrab_w`) | Hourly backup (`syncrab_b`) |
+   |---|---|---|
+   | Linux | systemd user service | cron |
+   | macOS | launchd agent | launchd agent |
+   | Windows | Task Scheduler, at logon | Task Scheduler, hourly |
+
+   Jobs and logs live in:
+
+   - Linux: `~/.local/share/syncrab/syncrab.db` (honours `$XDG_DATA_HOME`)
+   - macOS: `~/Library/Application Support/syncrab/syncrab.db`
+   - Windows: `%LOCALAPPDATA%\syncrab\syncrab.db`
 
 2. **Run the TUI**:
 
@@ -100,10 +88,22 @@ A Rust **TUI** and **CLI** for automating your backup jobs. [![Built With Ratatu
 
 4. **Uninstall**:
 
-   Run the uninstall script:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/O-ELMA/syncrab/master/uninstall | sh
+   ```
+
+   ```powershell
+   irm https://raw.githubusercontent.com/O-ELMA/syncrab/master/uninstall.ps1 | iex
+   ```
+
+   This removes the binaries, the background jobs and the database.
+
+5. **Build from source** (development):
 
    ```bash
-   bash ./uninstall
+   git clone https://github.com/O-ELMA/syncrab.git && cd syncrab
+   cargo build --release --bins
+   ./target/release/syncrab
    ```
 
 ---

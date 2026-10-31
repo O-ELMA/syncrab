@@ -6,6 +6,7 @@ use rusqlite::Connection;
 use chrono::Local;
 
 // mods ──────────────────────────────────────────────────────────
+use super::paths::home_dir;
 use crate::{
     consts::{FAILED, LOG_PATH, PARTIAL, SUCCESS},
     db::db::{insert_log, insert_log_resuts},
@@ -13,10 +14,12 @@ use crate::{
 };
 
 pub fn fallback_log(log: &Log, results: &[LogResult], error: &str) {
-    let log_path = if let Ok(home) = env::var("HOME") {
-        LOG_PATH.replace("$HOME", &home)
-    } else {
-        "/tmp/syncrab_log.log".to_string()
+    let log_path = match home_dir() {
+        Some(home) => LOG_PATH.replace("$HOME", &home.to_string_lossy()),
+        None => env::temp_dir()
+            .join("syncrab_log.log")
+            .to_string_lossy()
+            .into_owned(),
     };
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(log_path) {
         let _ = writeln!(file, "=== Cron job failed at {} ===", log.endstamp);

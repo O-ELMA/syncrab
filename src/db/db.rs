@@ -1,5 +1,10 @@
 // Standards ─────────────────────────────────────────────────────
-use std::{collections::HashMap, env, path::PathBuf};
+use std::{
+    collections::HashMap,
+    env,
+    fs::{copy, create_dir_all, rename},
+    path::PathBuf,
+};
 
 // Crates ────────────────────────────────────────────────────────
 use rusqlite::{Connection, Transaction};
@@ -8,6 +13,7 @@ use rusqlite::{Connection, Transaction};
 use crate::{
     consts::{ACTIVE, ALL, DAILY, DB_NAME, INACTIVE, REAL_TIME, WEEKLY},
     structs::{Job, Log, LogResult},
+    utils::data_dir,
 };
 
 // DB Helpers ─────────────────────────────────────────────────────
@@ -78,16 +84,38 @@ where
 
 // DB ───────────────────────────────────────────────────────────
 pub fn db_path() -> PathBuf {
-    let exe_path = env::current_exe().expect("❌ Failed to get current executable path");
-    let exe_dir = exe_path
-        .parent()
-        .expect("❌ Executable must be in some directory");
+    let dir = data_dir();
+    let _ = create_dir_all(&dir);
+    dir.join(DB_NAME)
+}
 
-    if exe_dir.ends_with("debug") || exe_dir.ends_with("release") {
-        let cwd = env::current_dir().expect("❌ Failed to get current working directory");
-        cwd.join(DB_NAME)
-    } else {
-        exe_dir.join(DB_NAME)
+fn legacy_db_path() -> Option<PathBuf> {
+    let exe = env::current_exe().ok()?;
+    let dir = exe.parent()?;
+
+    // Build directories are dev checkouts, never a real install
+    if dir.ends_with("debug") || dir.ends_with("release") {
+        return None;
+    }
+
+    Some(dir.join(DB_NAME))
+}
+
+fn migrate_legacy_db() {
+    let new_path = db_path();
+    if new_path.exists() {
+        return;
+    }
+
+    let Some(old_path) = legacy_db_path() else {
+        return;
+    };
+    if !old_path.exists() {
+        return;
+    }
+
+    if rename(&old_path, &new_path).is_err() {
+        let _ = copy(&old_path, &new_path);
     }
 }
 
@@ -97,6 +125,7 @@ fn db_connect() -> Connection {
 }
 
 pub fn init_db() -> Connection {
+    migrate_legacy_db();
     let conn: Connection = db_connect();
     create_tables(&conn);
     conn

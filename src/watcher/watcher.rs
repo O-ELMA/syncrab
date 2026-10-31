@@ -31,6 +31,9 @@ use syncrab::{
 
 // Init ──────────────────────────────────────────────────────────
 fn main() {
+    // notify cannot watch a file that does not exist yet
+    let _ = init_db();
+
     let db_path = db_path();
     let db_path = db_path.as_path();
 
@@ -222,11 +225,19 @@ fn sync_file_event(event: &Event, job: &Job) {
     let frequency = REAL_TIME;
     let source = job.source.to_string();
     let target = job.target.to_string();
+    let source_path = normalise_path(&job.source);
+    let target_path = normalise_path(&job.target);
 
     for path in &event.paths {
-        let files_names = path.to_str().unwrap().replace(&source, "");
-        let files_names = files_names.strip_prefix('/').unwrap_or(&files_names);
-        let dest_path = Path::new(&target).join(files_names);
+        let Ok(relative) = path.strip_prefix(&source_path) else {
+            eprintln!(
+                "Skipping [{}]: outside of the watched source [{}]",
+                path.display(),
+                source_path.display()
+            );
+            continue;
+        };
+        let dest_path = target_path.join(relative);
 
         match event.kind {
             // Sync into target (create/update/move in)

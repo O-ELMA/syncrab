@@ -1,6 +1,5 @@
 // Standards ────────────────────────────────────────────────────
 use std::{
-    env::var,
     fmt,
     fs::read_dir,
     path::{MAIN_SEPARATOR, Path, PathBuf},
@@ -8,6 +7,7 @@ use std::{
 };
 
 // mods ─────────────────────────────────────────────────────────
+use crate::utils::home_dir;
 use crate::consts::{
     ACTIVE, ALL, DAILY, DAY, DELIMITERS, HOUR, INACTIVE, JOURNAL, LOG, REAL_TIME, REPLACE_WITH,
     SEARCH, SOURCE, TARGET, TO_REPLACE, WEEKLY,
@@ -368,8 +368,8 @@ impl InputField {
 
 fn expand_home(input: &str) -> String {
     if input.starts_with('~') {
-        if let Ok(home) = var("HOME") {
-            return input.replacen("~", &home, 1);
+        if let Some(home) = home_dir() {
+            return input.replacen("~", &home.to_string_lossy(), 1);
         }
     }
     input.to_string()
