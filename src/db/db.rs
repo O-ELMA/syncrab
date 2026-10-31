@@ -98,7 +98,12 @@ fn db_connect() -> Connection {
 
 pub fn init_db() -> Connection {
     let conn: Connection = db_connect();
+    create_tables(&conn);
+    conn
+}
 
+// Create the jobs, logs and log_results tables when they don't exist yet
+fn create_tables(conn: &Connection) {
     // Create Jobs table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS jobs (
@@ -141,8 +146,6 @@ pub fn init_db() -> Connection {
         [],
     )
     .unwrap_or_else(|e| panic!("❌ Failed to create the log_results table because [{}]", e));
-
-    conn
 }
 
 fn get_jobs(conn: &Connection, sql: &str) -> HashMap<&'static str, Vec<Job>> {
@@ -185,7 +188,12 @@ pub fn get_jobs_to_run(
     day: String,
     hour: u8,
 ) -> HashMap<&'static str, Vec<Job>> {
-    let sql = match args {
+    let sql = jobs_query(args, &day, hour);
+    get_jobs(conn, &sql)
+}
+
+fn jobs_query(args: Option<(String, Option<String>)>, day: &str, hour: u8) -> String {
+    match args {
         None => {
             format!(
                 "SELECT * FROM jobs WHERE active = 1 AND (
@@ -223,9 +231,7 @@ pub fn get_jobs_to_run(
                 }
             }
         }
-    };
-
-    get_jobs(&conn, &sql)
+    }
 }
 
 pub fn get_logs(conn: &Connection) -> Vec<Log> {
@@ -242,6 +248,12 @@ pub fn get_logs(conn: &Connection) -> Vec<Log> {
     });
 
     let log_results = get_log_results(conn);
+    attach_log_results(&mut logs, log_results);
+
+    logs
+}
+
+fn attach_log_results(logs: &mut [Log], log_results: Vec<LogResult>) {
     let mut results_map: HashMap<u16, Vec<LogResult>> = HashMap::new();
 
     for log_result in log_results {
@@ -251,13 +263,11 @@ pub fn get_logs(conn: &Connection) -> Vec<Log> {
             .push(log_result);
     }
 
-    for log in &mut logs {
+    for log in logs {
         if let Some(results) = results_map.remove(&log.id.unwrap()) {
             log.log_results = Some(results);
         }
     }
-
-    logs
 }
 
 pub fn get_log_results(conn: &Connection) -> Vec<LogResult> {

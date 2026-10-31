@@ -19,13 +19,14 @@ use notify::{
         RenameMode::{From, To},
     },
 };
+use rusqlite::Connection;
 
 // mods ──────────────────────────────────────────────────────────
 use syncrab::{
     consts::{ACTIVE, FAILED, REAL_TIME},
-    db::db::{db_path, get_jobs_to_run, init_db, insert_log, insert_log_resuts},
+    db::db::{db_path, get_jobs_to_run, init_db},
     structs::{Job, Log, LogResult, WatchedJob},
-    utils::{are_paths_valid, copy_dir, fallback_log, log_results, normalise_path},
+    utils::{are_paths_valid, copy_dir, log_results, normalise_path, persist_log, CopyProgress},
 };
 
 // Init ──────────────────────────────────────────────────────────
@@ -75,27 +76,55 @@ fn handle_db_event(event: Option<Event>, active_watchers: Arc<Mutex<HashMap<u16,
     let now: DateTime<Local> = Local::now();
 
     let mut conn = init_db();
-    let jobs: Vec<Job> = get_jobs_to_run(
-        &conn,
+    let jobs = active_real_time_jobs(&conn, &now);
+    let job_ids: Vec<u16> = jobs.iter().map(|job| job.id.unwrap()).collect();
+    let mut watchers = active_watchers.lock().unwrap();
+
+    // job no longer exists or inactive in the DB
+    unwatch_inactive(&mut watchers, &job_ids);
+
+    if jobs.is_empty() {
+        return;
+    }
+
+    let mut failed_directories: Vec<LogResult> = Vec::new();
+
+    for job in jobs {
+        // already watching the job
+        if watchers.contains_key(&job.id.unwrap()) {
+            continue;
+        }
+
+        if let Err(error) = watch_job(&job, &mut watchers) {
+            failed_directories.push(LogResult::new(REAL_TIME, &error, &job.source, &job.target));
+        }
+    }
+
+    if !failed_directories.is_empty() {
+        persist_failed_run(&mut conn, now, &failed_directories);
+    }
+}
+
+fn active_real_time_jobs(conn: &Connection, now: &DateTime<Local>) -> Vec<Job> {
+    get_jobs_to_run(
+        conn,
         Some((REAL_TIME.to_owned(), Some(ACTIVE.to_owned()))),
         now.weekday().to_string(),
         now.hour() as u8,
     )
     .get(REAL_TIME)
     .unwrap()
-    .clone();
+    .clone()
+}
 
-    let job_ids: Vec<u16> = jobs.iter().map(|job| job.id.unwrap()).collect();
-    let mut watchers = active_watchers.lock().unwrap();
+// Stop watching jobs that became inactive or were deleted from the DB
+fn unwatch_inactive(watchers: &mut HashMap<u16, WatchedJob>, job_ids: &[u16]) {
     let inactive_ids: Vec<u16> = watchers
         .keys()
         .filter(|id| !job_ids.contains(id))
         .cloned()
         .collect();
 
-    let mut failed_directories: Vec<LogResult> = Vec::new();
-
-    // job no longer exists or inactive in the DB
     for id in inactive_ids {
         if let Some(watched_job) = watchers.remove(&id) {
             let WatchedJob {
@@ -107,81 +136,65 @@ fn handle_db_event(event: Option<Event>, active_watchers: Arc<Mutex<HashMap<u16,
             drop(job_tx); // drop the sender
         }
     }
+}
 
-    if jobs.is_empty() {
-        return;
+// Validate, create and register the watcher for a single job, then spawn its sync thread
+fn watch_job(job: &Job, watchers: &mut HashMap<u16, WatchedJob>) -> Result<(), String> {
+    let source = normalise_path(&job.source);
+    let target = normalise_path(&job.target);
+
+    let mut invalid_paths = Vec::new();
+    if !are_paths_valid(
+        &REAL_TIME.to_string(),
+        job,
+        &source,
+        &target,
+        &mut invalid_paths,
+    ) {
+        return Err(invalid_paths
+            .pop()
+            .map(|result| result.message)
+            .unwrap_or_default());
     }
 
-    for job in jobs {
-        // already watching the job
-        if watchers.contains_key(&job.id.unwrap()) {
-            continue;
-        }
+    let (job_tx, job_rx) = channel();
 
-        let source = normalise_path(&job.source);
-        let target = normalise_path(&job.target);
+    let mut job_watcher = RecommendedWatcher::new(job_tx.clone(), notify::Config::default())
+        .map_err(|e| format!("Failed to create file watcher because [{}]", e))?;
 
-        if !are_paths_valid(
-            &REAL_TIME.into(),
-            &job,
-            &source,
-            &target,
-            &mut failed_directories,
-        ) {
-            continue;
-        }
+    job_watcher
+        .watch(source.as_path(), RecursiveMode::Recursive)
+        .map_err(|e| format!("Failed to create file watcher because [{}]", e))?;
 
-        let (job_tx, job_rx) = channel();
+    watchers.insert(
+        job.id.unwrap(),
+        WatchedJob {
+            job: job.clone(),
+            job_watcher,
+            job_tx,
+        },
+    );
 
-        let mut job_watcher =
-            match RecommendedWatcher::new(job_tx.clone(), notify::Config::default()) {
-                Ok(w) => w,
-                Err(e) => {
-                    failed_directories.push(LogResult::new(
-                        REAL_TIME.into(),
-                        &format!("Failed to create file watcher because [{}]", e),
-                        &job.source,
-                        &job.target,
-                    ));
-                    continue;
-                }
-            };
-
-        if let Err(e) = job_watcher.watch(source.as_path(), RecursiveMode::Recursive) {
-            failed_directories.push(LogResult::new(
-                REAL_TIME.into(),
-                &format!("Failed to create file watcher because [{}]", e),
-                &job.source,
-                &job.target,
-            ));
-            continue;
-        }
-
-        watchers.insert(
-            job.id.unwrap(),
-            WatchedJob {
-                job: job.clone(),
-                job_watcher,
-                job_tx,
-            },
-        );
-
-        // Spawn a thread for this job watcher
-        let job_clone = job.clone();
-        std::thread::spawn(move || {
-            for res in job_rx {
-                match res {
-                    Ok(event) => sync_file_event(&event, &job_clone),
-                    Err(e) => eprintln!("Job watch error: {}\n\n", e),
-                }
+    // Spawn a thread for this job watcher
+    let job_clone = job.clone();
+    std::thread::spawn(move || {
+        for res in job_rx {
+            match res {
+                Ok(event) => sync_file_event(&event, &job_clone),
+                Err(e) => eprintln!("Job watch error: {}\n\n", e),
             }
-        });
-    }
+        }
+    });
 
-    if failed_directories.is_empty() {
-        return;
-    }
+    Ok(())
+}
 
+// Log the reason each job watcher could not be started
+fn persist_failed_run(
+    conn: &mut Connection,
+    now: DateTime<Local>,
+    failed_directories: &[LogResult],
+) {
     let log = Log {
         id: None,
         startstamp: now.format("%d-%m-%Y %H:%M").to_string(),
@@ -191,16 +204,8 @@ fn handle_db_event(event: Option<Event>, active_watchers: Arc<Mutex<HashMap<u16,
         endstamp: Local::now().format("%d-%m-%Y %H:%M").to_string(),
         log_results: None,
     };
-    match insert_log(&mut conn, log.clone()) {
-        Ok(id) => {
-            if let Err(error) = insert_log_resuts(&mut conn, id as u16, &failed_directories) {
-                fallback_log(&log, &failed_directories, &error);
-            }
-        }
-        Err(error) => {
-            fallback_log(&log, &failed_directories, &error);
-        }
-    }
+
+    persist_log(conn, &log, failed_directories);
 }
 
 fn sync_file_event(event: &Event, job: &Job) {
@@ -226,8 +231,18 @@ fn sync_file_event(event: &Event, job: &Job) {
         match event.kind {
             // Sync into target (create/update/move in)
             Create(File) | Create(Folder) | Modify(Data(Any)) | Modify(Name(To)) => {
+                let mut count = 1;
                 // Copy or overwrite from path to dest_path
-                match copy_dir(&path, &dest_path, 0, 1, &mut (1 as usize), false) {
+                match copy_dir(
+                    &path,
+                    &dest_path,
+                    0,
+                    &mut CopyProgress {
+                        total: 1,
+                        count: &mut count,
+                        silent: false,
+                    },
+                ) {
                     Ok(_) => {
                         success_directories.push(LogResult::new(frequency, "OK", &source, &target))
                     }

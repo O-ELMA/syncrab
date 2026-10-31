@@ -16,20 +16,21 @@ use crate::{
     utils::{capitalise, get_active_jobs},
 };
 
+fn count_active(jobs: &[Job]) -> (u16, u16) {
+    jobs.iter().fold((0u16, 0u16), |(a, i), j| {
+        if j.active == 1 {
+            (a + 1, i)
+        } else {
+            (a, i + 1)
+        }
+    })
+}
+
 impl App {
     // Handle record
     pub fn commit_record(&mut self) {
         if self.suggestion_state.active {
-            if let Some(selected) = self.suggestion_state.state.selected() {
-                let input = self.suggestion_state.paths[selected].clone();
-                let input_count = input.chars().count();
-
-                if let Some(active_input) = self.get_active_input() {
-                    active_input.value = input;
-                    active_input.index = input_count;
-                }
-            }
-            self.suggestion_state.active = false;
+            self.apply_selected_suggestion();
 
             // If this is a Job modal, continue to commit instead of returning
             if self.active_modal != Some(Modal::Job) {
@@ -41,68 +42,76 @@ impl App {
             return;
         }
 
-        if let Some(job) = &mut self.selected_job {
-            job.source = self.source.value.clone();
-            job.target = self.target.value.clone();
-            job.hour = self.hour.value.parse().unwrap();
+        let Some(mut job) = self.selected_job.clone() else {
+            return;
+        };
+        self.fill_job_from_form(&mut job);
 
-            let day = &self.day.value;
-            if !day.is_empty() {
-                let capitalised_day = capitalise(&day);
-                job.day = Some(capitalised_day);
-            }
+        let job_id = job.id;
+        let res = match job_id {
+            Some(_) => update(&mut self.db, &job),
+            None => insert(&mut self.db, &job),
+        };
 
-            let freq = job.frequency.as_str();
-            let job_id = job.id;
-            let res = match job_id {
-                Some(_) => update(&mut self.db, job),
-                None => insert(&mut self.db, job),
-            };
+        match res {
+            Ok(id) => self.sync_after_save(&mut job, id),
+            Err(e) => println!("{e}"), //TODO: add popup for the error
+        }
+    }
 
-            match res {
-                Ok(id) => {
-                    let stat = self.stats.get_mut(freq).unwrap();
-                    let jobs = self.jobs.get_mut(freq).unwrap();
+    // Apply the highlighted path suggestion to the focused input, if any
+    fn apply_selected_suggestion(&mut self) {
+        if let Some(selected) = self.suggestion_state.state.selected() {
+            let input = self.suggestion_state.paths[selected].clone();
+            let input_count = input.chars().count();
 
-                    match job_id {
-                        Some(job_id) => {
-                            if let Some(iter_job) =
-                                jobs.iter_mut().find(|iter_job| iter_job.id == Some(job_id))
-                            {
-                                *iter_job = job.clone();
-                            }
-
-                            let (active_count, inactive_count) =
-                                jobs.iter().fold((0u16, 0u16), |(a, i), j| {
-                                    if j.active == 1 {
-                                        (a + 1, i)
-                                    } else {
-                                        (a, i + 1)
-                                    }
-                                });
-
-                            stat.active_count = active_count;
-                            stat.inactive_count = inactive_count;
-                        }
-                        None => {
-                            job.id = Some(id as u16);
-                            let job_id = job.id.unwrap();
-                            let job_freq = job.frequency.clone();
-                            jobs.push(job.clone());
-
-                            stat.count += 1;
-                            stat.inactive_count += 1;
-
-                            self.select_job_by_id(&job_freq, job_id);
-                        }
-                    };
-
-                    self.active_component = None;
-                    self.reset_values();
-                }
-                Err(e) => println!("{e}"), //TODO: add popup for the error
+            if let Some(active_input) = self.get_active_input() {
+                active_input.value = input;
+                active_input.index = input_count;
             }
         }
+        self.suggestion_state.active = false;
+    }
+
+    fn fill_job_from_form(&self, job: &mut Job) {
+        job.source = self.source.value.clone();
+        job.target = self.target.value.clone();
+        job.hour = self.hour.value.parse().unwrap();
+
+        if !self.day.value.is_empty() {
+            job.day = Some(capitalise(&self.day.value));
+        }
+    }
+
+    fn sync_after_save(&mut self, job: &mut Job, id: usize) {
+        let freq = job.frequency.clone();
+        let stat = self.stats.get_mut(freq.as_str()).unwrap();
+        let jobs = self.jobs.get_mut(freq.as_str()).unwrap();
+
+        match job.id {
+            Some(job_id) => {
+                if let Some(iter_job) = jobs.iter_mut().find(|iter_job| iter_job.id == Some(job_id)) {
+                    *iter_job = job.clone();
+                }
+
+                let (active_count, inactive_count) = count_active(jobs);
+                stat.active_count = active_count;
+                stat.inactive_count = inactive_count;
+            }
+            None => {
+                job.id = Some(id as u16);
+                let job_id = job.id.unwrap();
+                jobs.push(job.clone());
+
+                stat.count += 1;
+                stat.inactive_count += 1;
+
+                self.select_job_by_id(&freq, job_id);
+            }
+        };
+
+        self.active_component = None;
+        self.reset_values();
     }
 
     pub fn clone_record(&mut self, mut job: Job) {
@@ -146,20 +155,25 @@ impl App {
                     stat.inactive_count -= 1;
                 }
 
-                let new_index = if current_index == 0 {
-                    0
-                } else {
-                    current_index - 1
-                };
-
-                if let Some(state) = self.states.get_mut(freq) {
-                    let jobs_len = self.jobs.get(freq).map(|j| j.len()).unwrap_or(0);
-                    let clamped_index = new_index.min(jobs_len.saturating_sub(1));
-                    state.table_state.select(Some(clamped_index));
-                    state.scroll = clamped_index;
-                }
+                self.reselect_after_delete(freq, current_index);
             }
             Err(e) => println!("{e}"), //TODO: add popup for the error
+        }
+    }
+
+    // Move the table selection to the previous index after removing a record
+    fn reselect_after_delete(&mut self, freq: &str, current_index: usize) {
+        let new_index = if current_index == 0 {
+            0
+        } else {
+            current_index - 1
+        };
+
+        if let Some(state) = self.states.get_mut(freq) {
+            let jobs_len = self.jobs.get(freq).map(|j| j.len()).unwrap_or(0);
+            let clamped_index = new_index.min(jobs_len.saturating_sub(1));
+            state.table_state.select(Some(clamped_index));
+            state.scroll = clamped_index;
         }
     }
 
@@ -180,26 +194,18 @@ impl App {
         match mass_update(&mut self.db, &ids_to_update, "active", active) {
             Ok(_) => {
                 if let Some(jobs) = self.jobs.get_mut(section) {
-                    let mut new_active_count: u16 = 0;
-                    let mut new_inactive_count: u16 = 0;
-
                     for job in jobs.iter_mut() {
                         if let Some(id) = job.id {
                             if ids_set.contains(&id) {
                                 job.active = active;
                             }
                         }
-
-                        if job.active == 1 {
-                            new_active_count += 1;
-                        } else {
-                            new_inactive_count += 1;
-                        }
                     }
 
+                    let (active_count, inactive_count) = count_active(jobs);
                     if let Some(stat) = self.stats.get_mut(section) {
-                        stat.active_count = new_active_count;
-                        stat.inactive_count = new_inactive_count;
+                        stat.active_count = active_count;
+                        stat.inactive_count = inactive_count;
                     }
                 }
             }
@@ -234,15 +240,8 @@ impl App {
                 }
 
                 if update_stats {
+                    let (active_count, inactive_count) = count_active(jobs);
                     let stat = self.stats.get_mut(freq.as_str()).unwrap();
-                    let (active_count, inactive_count) =
-                        jobs.iter().fold((0u16, 0u16), |(a, i), j| {
-                            if j.active == 1 {
-                                (a + 1, i)
-                            } else {
-                                (a, i + 1)
-                            }
-                        });
                     stat.active_count = active_count;
                     stat.inactive_count = inactive_count;
                 }
